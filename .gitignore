@@ -1,0 +1,90 @@
+# ==================== 环境变量 / 密钥 ====================
+# 含 LLM/Milvus/MinIO/MinerU 等真实密钥，绝对不能入库
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# ==================== Python ====================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+downloads/
+eggs/
+*.egg
+*.egg-info/
+.eggs/
+
+# ==================== 虚拟环境（uv sync 生成） ====================
+.venv/
+venv/
+ENV/
+env/
+
+# ==================== 日志（common/logging/logger.py 输出到项目根 logs/）====================
+logs/
+*.log
+*.log.*
+
+# ==================== 缓存 ====================
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.cache/
+coverage/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+
+# ==================== 本地模型 / 向量数据 ====================
+# BGE-M3、Reranker 等下载到本地时占用体积大，不入库
+models/
+model_cache/
+*.pt
+*.pth
+*.onnx
+*.safetensors
+*.bin
+
+# ==================== 运行期产物 ====================
+# MinerU / magic-pdf 解析 PDF 产生的中间文件与结果
+output/
+outputs/
+cache/
+tmp/
+temp/
+*.tmp
+**/mineru_output/
+**/*_origin.pdf
+**/auto/
+
+# 知识库上传的原始文件（doc/ 下的示例文档除外）
+uploads/
+
+# ==================== IDE ====================
+.idea/
+.vscode/
+# 若团队需要共享调试配置，可放开下面两行
+# !.vscode/launch.json
+# !.vscode/settings.json
+*.iml
+*.ipr
+*.iws
+*.swp
+*.swo
+*~
+
+# ==================== Jupyter ====================
+.ipynb_checkpoints/
+
+# ==================== 操作系统 ====================
+.DS_Store
+Thumbs.db
+desktop.ini
