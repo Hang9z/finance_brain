@@ -18,8 +18,11 @@ class ImportGraphState(TypedDict):
     local_dir: str  # 文件夹地址  (pdf -> md  -> 输出的文件夹地址)
     local_file_path: str  # 传入文件地址 不确定md pdf
     file_title: str
-    pdf_path: str  # pdf地址 文件 <- local_file_path
-    md_path: str   # md地址 文件 <- local_file_path
+    # 把local_file_path分流成两条路，如果不是md文件，pdf.path转成md后让md_path指向，
+    # 如果本来就是.md文件，后续不用进行二次判断，md_path指向的一定是md
+    # 没有分流：以后都要判断local_file_path的后缀是什么
+    pdf_path: str
+    md_path: str
 
     # --- 内容数据 ---
     md_content: str
