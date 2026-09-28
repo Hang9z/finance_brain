@@ -9,7 +9,7 @@ def load_prompt(name: str, **kwargs) -> str:
     :return: 渲染后的最终提示词字符串
     """
     # 1. 拼接提示词路径（你的原有逻辑，完全保留）
-    prompt_path = PROJECT_ROOT / 'common' / 'prompt' / f'{name}.prompt'
+    prompt_path = PROJECT_ROOT / 'common' / 'prompts' / f'{name}.prompt'
 
     # 2. 校验文件是否存在（可选，避免文件不存在直接报错）
     if not prompt_path.exists():

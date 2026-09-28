@@ -82,15 +82,15 @@ if __name__ == "__main__":
         logger.info("✅ 测试1通过：默认配置客户端创建成功")
 
         # 测试2：指定多模态模型（qwen-vl-plus）+ 普通模式
-        client2 = get_llm_client(model="qwen-vl-plus")
+        client2 = get_llm_client(model="gemini-2.5-flash")
         logger.info("✅ 测试2通过：指定多模态模型客户端创建成功")
 
         # 测试3：同一模型+模式，验证缓存命中
-        client3 = get_llm_client(model="qwen-vl-plus")
+        client3 = get_llm_client(model="gemini-2.5-flash")
         logger.info(f"✅ 测试3通过：缓存机制验证成功，client2与client3为同一实例：{client2 is client3}")
 
         # 测试4：开启JSON输出模式
-        client4 = get_llm_client(model="qwen3-32b", json_mode=True)
+        client4 = get_llm_client(model="gemini-2.5-flash", json_mode=True)
         logger.info("✅ 测试4通过：JSON输出模式客户端创建成功")
 
     except Exception as e:
