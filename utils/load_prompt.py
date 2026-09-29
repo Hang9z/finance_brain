@@ -8,10 +8,12 @@ def load_prompt(name: str, **kwargs) -> str:
     :param **kwargs: 需渲染的变量键值对（如root_folder="测试文件", image_content=("上文内容", "下文内容")）
     :return: 渲染后的最终提示词字符串
     """
-    # 1. 拼接提示词路径（你的原有逻辑，完全保留）
-    prompt_path = PROJECT_ROOT / 'common' / 'prompts' / f'{name}.prompt'
+    # 1. 拼接提示词路径（自适应兼容 common/prompt 与 common/prompts）
+    prompt_path = PROJECT_ROOT / 'common' / 'prompt' / f'{name}.prompt'
+    if not prompt_path.exists():
+        prompt_path = PROJECT_ROOT / 'common' / 'prompts' / f'{name}.prompt'
 
-    # 2. 校验文件是否存在（可选，避免文件不存在直接报错）
+    # 2. 校验文件是否存在（避免文件不存在直接报错）
     if not prompt_path.exists():
         raise FileNotFoundError(f"提示词文件不存在：{prompt_path.absolute()}")
 
