@@ -80,14 +80,20 @@ kb_import_app = workflow.compile()
 
 # 8. 本地测试执行块
 if __name__ == "__main__":
-    logger.info("开始测试文档导入工作流...")
+    logger.info("===== 开始测试文档导入完整工作流 (main_graph) =====")
 
-    # 构建测试用初始状态
+    # 构建测试用初始状态 (测试 PDF 端到端链路)
     test_state = create_default_state(
-        task_id = "task_demo_001",
+        task_id="task_demo_main_001",
         local_file_path="doc/万用表RS-12的使用.pdf"
     )
 
     # 触发状态图执行
     result = kb_import_app.invoke(test_state)
-    logger.info("工作流骨架连通性测试成功")
+
+    logger.info("===== 文档导入工作流全拓扑执行成功 =====")
+    logger.info(f"  - 任务 ID: {result.get('task_id')}")
+    logger.info(f"  - 文档标题 (file_title): {result.get('file_title')}")
+    logger.info(f"  - 转换规整 MD (md_path): {result.get('md_path')}")
+    logger.info(f"  - 增强后正文长度 (字符数): {len(result.get('md_content', ''))}")
+    logger.info(f"  - 分流标记: is_pdf={result.get('is_pdf_read_enabled')}, is_md={result.get('is_md_read_enabled')}")
