@@ -1,133 +1,151 @@
-import re
+import logging
 from typing import Any
+from langchain_text_splitter import RecursiveCharacterTextSplitter
 
-def step_2_split_document_by_title(md_content: str, file_title: str) -> list[dict[str, Any]]:
-    chunks: list[dict[str, Any]] = []
-    current_title: str | None = None
-    current_content_lines: list[str] = []
-    orphan_lines: list[str] = []
-    has_flushed_first_chunk: bool = False
-    is_code: bool = False
-    heading_stack: list[str] = []
+# ==========================================
+# 1. 配置与模拟日志装饰器
+# ==========================================
+logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
+logger = logging.getLogger(__name__)
 
-    document_lines = md_content.splitlines()
-    title_reg = re.compile(r"^#{1,6}\s.+")
+CHUNK_SIZE = 600
+CHUNK_OVERLAP = 100
+CHUNK_MIN = 400
+CHUNK_MAX_SIZE = 1000
 
-    for line in document_lines:
-        line_strip = line.strip()
-        if not line_strip:
-            continue
 
-        if line_strip.startswith("```") or line_strip.startswith("~~~"):
-            is_code = not is_code
-            (orphan_lines if not current_title else current_content_lines).append(line_strip)
-            continue
+def step_log(step_name):
+    def decorator(func):
+        def wrapper(*args, **kwargs):
+            return func(*args, **kwargs)
 
-        if is_code:
-            (orphan_lines if not current_title else current_content_lines).append(line)
-            continue
+        return wrapper
 
-        if title_reg.match(line_strip):
-            heading_level = len(line_strip) - len(line_strip.lstrip("#"))
+    return decorator
 
-            if current_title and len(current_content_lines) > 0:
-                if not has_flushed_first_chunk and orphan_lines:
-                    current_content_lines = orphan_lines + current_content_lines
-                    has_flushed_first_chunk = True
-                    orphan_lines = []
 
-                full_content = f"{current_title}\n" + "\n".join(current_content_lines)
-                chunks.append({
-                    "title": current_title,
-                    "content": full_content,
-                    "file_title": file_title
-                })
-                current_content_lines = []
+# ==========================================
+# 2. 核心业务代码 (完全使用我们优化后的版本)
+# ==========================================
+@step_log("_split_chunk_content")
+def _split_chunk_content(chunk: dict[str, Any]) -> list[dict[str, Any]]:
+    sub_chunks: list[dict[str, Any]] = []
+    content = chunk.get("content")
+    deal_content = content[len(chunk.get("title")) + 1:]
+    prefix = chunk.get("title") + "\n"
 
-            while len(heading_stack) < heading_level:
-                heading_stack.append(None)
+    spliter = RecursiveCharacterTextSplitter(
+        chunk_size=CHUNK_SIZE - len(prefix),
+        chunk_overlap=CHUNK_OVERLAP,
+        separators=["\n\n", "\n", "。", "！", "？", "；", "，", " "]
+    )
 
-            heading_stack = heading_stack[:heading_level]
-            heading_stack[heading_level - 1] = line_strip
-            current_title = "_".join([h for h in heading_stack if h])
-            continue
+    for index, text in enumerate(spliter.split_text(deal_content), start=1):
+        sub_chunks.append({
+            "file_title": chunk.get("file_title"),
+            "parent_title": chunk.get("title"),
+            "title": f"{chunk.get('title')}_{index}",
+            "part": index,
+            "content": prefix + text
+        })
+    return sub_chunks
+
+
+@step_log("_merge_chunk_content")
+def _merge_chunk_content(refine_chunks: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    merge_refine_chunks: list[dict[str, Any]] = []
+    if not refine_chunks: return merge_refine_chunks
+
+    base_chunk = refine_chunks[0].copy()
+
+    for next_chunk in refine_chunks[1:]:
+        base_content = base_chunk.get("content", "")
+        next_content = next_chunk.get("content", "")
+        parent_title = base_chunk.get("parent_title")
+
+        is_same_parent = bool(parent_title) and (parent_title == next_chunk.get("parent_title"))
+        is_base_short = len(base_content) <= CHUNK_MIN
+
+        if is_same_parent and is_base_short:
+            next_cleared_content = next_content[len(parent_title) + 1:]
+            is_merged_short = (len(base_content) + len(next_cleared_content) + 1) <= CHUNK_MAX_SIZE
+
+            if is_merged_short:
+                base_chunk['content'] = f"{base_content}\n{next_cleared_content}"
+                continue
+
+        merge_refine_chunks.append(base_chunk)
+        base_chunk = next_chunk.copy()
+
+    if base_chunk:
+        merge_refine_chunks.append(base_chunk)
+
+    logger.info(f"合并完成，最终数量:{len(merge_refine_chunks)}")
+    return merge_refine_chunks
+
+
+@step_log("step_3_refine_split_and_merge_chunks")
+def step_3_refine_split_and_merge_chunks(chunks: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    refine_chunks: list[dict[str, Any]] = []
+
+    for chunk in chunks:
+        if len(chunk.get("content", "")) > 600:
+            refine_chunks.extend(_split_chunk_content(chunk))
         else:
-            if not current_title:
-                orphan_lines.append(line)
-            else:
-                current_content_lines.append(line)
+            refine_chunks.append(chunk)
 
-    if current_title and (len(current_content_lines) > 0 or (not has_flushed_first_chunk and len(orphan_lines) > 0)):
-        if not has_flushed_first_chunk and len(orphan_lines):
-            current_content_lines = orphan_lines + current_content_lines
-            has_flushed_first_chunk = True
-            orphan_lines = []
-        full_content = f"{current_title}\n" + "\n".join(current_content_lines)
-        chunks.append({
-            "title": current_title,
-            "content": full_content,
-            "file_title": file_title
-        })
-    elif (not current_title) and len(orphan_lines):
-        chunks.append({
-            "title": file_title,
-            "content": "\n".join(orphan_lines),
-            "file_title": file_title
-        })
+    logger.info(f"切割完成，切割后包含的碎片数量:{len(refine_chunks)}")
+    refine_chunks = _merge_chunk_content(refine_chunks)
+    return refine_chunks
 
-    return chunks
 
-# ----------------- 漏洞验证用例 -----------------
+# ==========================================
+# 3. 漂亮的可视化打印方法
+# ==========================================
+def print_chunks(chunks: list[dict[str, Any]], stage_name: str):
+    print(f"\n{'=' * 25} {stage_name} {'=' * 25}")
+    for i, chunk in enumerate(chunks, 1):
+        content = chunk.get("content", "")
+        # 截断展示，避免满屏全是文字
+        if len(content) > 100:
+            preview = f"{content[:50]} ......(省略)...... {content[-30:]}"
+        else:
+            preview = content
 
-print("=== 漏洞1：嵌套/多反引号代码块状态反转错误 ===")
-test_code_block = """# 编程文档
-````markdown
-```python
-# 这只是代码块内的普通注释
-print("hello")
-```
-````
-正文结尾。
-"""
-res1 = step_2_split_document_by_title(test_code_block, "test1")
-for i, c in enumerate(res1):
-    print(f"Chunk {i+1} title: {c['title']}")
-    print(f"Content:\n{c['content']}\n")
+        print(f"🟢 [Chunk {i}]")
+        print(f"   ├─ file_title  : {chunk.get('file_title')}")
+        print(f"   ├─ parent_title: {chunk.get('parent_title', 'None (未被切分)')}")
+        print(f"   ├─ title       : {chunk.get('title', 'None')}")
+        print(f"   ├─ 文本总长度   : {len(content)} 字符")
+        print(f"   └─ 文本预览     : {preview.replace(chr(10), r'\n')}\n")
 
-print("=== 漏洞2：空行全被抹杀，导致代码格式和段落严重毁损 ===")
-test_blank_lines = """# 规范
-段落一内容。
 
-段落二内容。
+# ==========================================
+# 4. 运行 Demo
+# ==========================================
+if __name__ == '__main__':
+    # 构造模拟数据：包含一个超大文本(触发切分) 和一个短文本(不触发切分)
+    raw_chunks = [
+        {
+            "file_title": "测试文档.pdf",
+            "title": "#警告信息",
+            # 造一个 800字 的大段落 (会触发 >600 的切割)
+            "content": "#警告信息\n" + "我们遇到了一些严重的问题。" * 60 + "最后这是结尾部分。"
+        },
+        {
+            "file_title": "测试文档.pdf",
+            "title": "#普通小结",
+            # 造一个 200字 的小段落 (不会触发切割)
+            "content": "#普通小结\n" + "一切正常，不需要处理。" * 20
+        }
+    ]
 
-```python
-def add(a, b):
-    # 中间有空行
+    # 1. 打印处理前
+    print_chunks(raw_chunks, "切分与合并前 (原始输入)")
 
-    return a + b
-```
-"""
-res2 = step_2_split_document_by_title(test_blank_lines, "test2")
-print("Content with blank lines stripped:")
-print(repr(res2[0]['content']))
+    # 2. 执行核心链路
+    print("\n⏳ 正在执行切分与合并...\n")
+    final_chunks = step_3_refine_split_and_merge_chunks(raw_chunks)
 
-print("\n=== 漏洞3：孤儿前言与首个有内容章节的语义污染 & 幽灵漂移 ===")
-test_orphan_drift = """免责声明：本内容仅供参考，不负法律责任。
-# 第一章：引言 (无正文)
-# 第二章：核心算法
-这是第二章算法正文。
-"""
-res3 = step_2_split_document_by_title(test_orphan_drift, "test3")
-for i, c in enumerate(res3):
-    print(f"Chunk {i+1} title: {c['title']}")
-    print(f"Content:\n{c['content']}\n")
-
-print("=== 漏洞4：文末空标题被完全静默丢弃 ===")
-test_last_empty_heading = """# 第一章
-正文一
-# 第二章 (末尾空标题)
-"""
-res4 = step_2_split_document_by_title(test_last_empty_heading, "test4")
-print(f"Total chunks: {len(res4)}")
-for i, c in enumerate(res4):
-    print(f"Chunk {i+1} title: {c['title']}")
+    # 3. 打印处理后
+    print_chunks(final_chunks, "切分与合并后 (最终输出)")

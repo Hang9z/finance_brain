@@ -31,6 +31,7 @@ dependencies = [
     "datasets>=4.8.4",
     "openai-agents>=0.4.2",
     "requests>=2.32.5",
+    "langchain-text-splitters>=1.1.2",
 ]
 # 全局镜像源配置
 [[tool.uv.index]]
