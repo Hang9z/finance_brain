@@ -1,3 +1,5 @@
+import os
+import requests
 from pymilvus.model.hybrid import BGEM3EmbeddingFunction
 from common.logging.logger import logger
 from common.config.embedding_config import embedding_config
@@ -59,6 +61,28 @@ def generate_embeddings(texts):
     if not isinstance(texts, list) or len(texts) == 0:
         logger.warning("生成向量入参不合法，texts必须为非空列表")
         raise ValueError("参数texts必须是包含文本的非空列表")
+
+    # 优先检查是否配置了云端/远程 Embedding 接口
+    bge_api_url = os.getenv("BGE_API_URL")
+    if bge_api_url:
+        logger.info(f"使用云端/远程 BGE-M3 接口 ({bge_api_url}) 生成 {len(texts)} 条文本向量")
+        try:
+            response = requests.post(f"{bge_api_url.rstrip('/')}/embeddings", json={"texts": texts}, timeout=60)
+            response.raise_for_status()
+            payload = response.json()
+            processed_sparse = [
+                {int(k): float(v) for k, v in item.items()}
+                for item in payload.get("sparse", [])
+            ]
+            result = {
+                "dense": payload.get("dense", []),
+                "sparse": processed_sparse
+            }
+            logger.success(f"{len(texts)}条文本向量通过云端接口生成完成")
+            return result
+        except Exception as e:
+            logger.error(f"云端 BGE-M3 接口调用失败: {str(e)}", exc_info=True)
+            raise
 
     logger.info(f"开始为{len(texts)}条文本生成混合向量嵌入")
     try:
