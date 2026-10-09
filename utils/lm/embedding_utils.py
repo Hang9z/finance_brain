@@ -1,3 +1,4 @@
+import hashlib
 import os
 import requests
 from pymilvus.model.hybrid import BGEM3EmbeddingFunction
@@ -6,6 +7,24 @@ from common.config.embedding_config import embedding_config
 
 # 模型单例对象，避免重复初始化
 _bge_m3_ef = None
+
+
+def _text_to_sparse_fallback(text: str) -> dict:
+    """
+    当外部服务未暴露稀疏向量时，基于文本特征生成 L2 归一化的轻量稀疏向量字典。
+    维度采用非负整数 uint32 哈希，确保与 Milvus SPARSE_FLOAT_VECTOR 倒排索引完全兼容。
+    """
+    words = [w for w in text.split() if w.strip()]
+    if not words:
+        words = list(text[:30])
+    freq = {}
+    for w in words:
+        dim_id = int(hashlib.md5(w.encode("utf-8")).hexdigest()[:6], 16) % 30000
+        freq[dim_id] = freq.get(dim_id, 0.0) + 1.0
+    norm = sum(v ** 2 for v in freq.values()) ** 0.5
+    if norm > 0:
+        return {k: round(v / norm, 4) for k, v in freq.items()}
+    return {1: 1.0}
 
 def get_bge_m3_ef():
     """
@@ -62,7 +81,37 @@ def generate_embeddings(texts):
         logger.warning("生成向量入参不合法，texts必须为非空列表")
         raise ValueError("参数texts必须是包含文本的非空列表")
 
-    # 优先检查是否配置了云端/远程 Embedding 接口
+    # 1. 优先检查是否配置了 Cloudflare Workers AI (Serverless 高可用)
+    cf_account_id = os.getenv("CF_ACCOUNT_ID")
+    cf_api_token = os.getenv("CF_API_TOKEN")
+    cf_model = os.getenv("CF_EMBEDDING_MODEL", "@cf/baai/bge-m3")
+
+    if cf_account_id and cf_api_token:
+        logger.info(f"使用 Cloudflare Workers AI ({cf_model}) 生成 {len(texts)} 条文本向量")
+        try:
+            cf_url = f"https://api.cloudflare.com/client/v4/accounts/{cf_account_id}/ai/run/{cf_model}"
+            headers = {"Authorization": f"Bearer {cf_api_token}"}
+            response = requests.post(cf_url, headers=headers, json={"text": texts}, timeout=60)
+            response.raise_for_status()
+            payload = response.json()
+            if not payload.get("success", False):
+                raise RuntimeError(f"Cloudflare Workers AI 错误: {payload.get('errors')}")
+
+            dense_vectors = payload.get("result", {}).get("data", [])
+            # 为保证与 Milvus 双向量 Schema 完全兼容，配套生成轻量稀疏向量
+            processed_sparse = [_text_to_sparse_fallback(t) for t in texts]
+
+            result = {
+                "dense": dense_vectors,
+                "sparse": processed_sparse
+            }
+            logger.success(f"{len(texts)}条文本向量通过 Cloudflare Workers AI 生成完成")
+            return result
+        except Exception as e:
+            logger.error(f"Cloudflare Workers AI 向量生成失败: {str(e)}", exc_info=True)
+            raise
+
+    # 2. 检查是否配置了自建云端/远程 Embedding 接口 (如 Google Colab FastAPI)
     bge_api_url = os.getenv("BGE_API_URL")
     if bge_api_url:
         logger.info(f"使用云端/远程 BGE-M3 接口 ({bge_api_url}) 生成 {len(texts)} 条文本向量")
