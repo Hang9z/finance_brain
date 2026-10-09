@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+import time
 from typing import Any, Dict, List, Tuple
 from langchain_core.messages import HumanMessage
 from langchain_core.output_parsers import StrOutputParser
@@ -111,7 +112,20 @@ def step_2_call_llm_return_item_name(chunks: List[Dict[str, Any]], file_title: s
 
     # 链式调用
     chain = llm_model | StrOutputParser()
-    item_name: str = chain.invoke([message])
+    item_name = ""
+    for attempt in range(1, 4):
+        try:
+            item_name = chain.invoke([message])
+            break
+        except Exception as e:
+            err_msg = str(e)
+            if "429" in err_msg or "RESOURCE_EXHAUSTED" in err_msg or "RateLimit" in err_msg:
+                wait_s = 20 * attempt
+                logger.warning(f"[node_item_name_recognition] 触发 LLM 频率限制 (429)，等待 {wait_s} 秒后重试 (尝试 {attempt}/3)...")
+                time.sleep(wait_s)
+            else:
+                logger.error(f"[node_item_name_recognition] LLM 调用失败: {e}")
+                break
 
     # 清洗与兜底校验: 若识别为空, 兜底使用file_title
     item_name = item_name.strip().strip('"').strip("'") if item_name else ""

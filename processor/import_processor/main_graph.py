@@ -1,5 +1,12 @@
 import json
+from pathlib import Path
+import sys
 from dotenv import load_dotenv
+
+# 确保脚本直接运行时正确加载工程根目录模块
+_PROJECT_ROOT = str(Path(__file__).resolve().parent.parent.parent)
+if _PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, _PROJECT_ROOT)
 
 # 核心图组件和内置常量
 from langgraph.graph import StateGraph, START, END
@@ -94,6 +101,9 @@ if __name__ == "__main__":
     logger.info("===== 文档导入工作流全拓扑执行成功 =====")
     logger.info(f"  - 任务 ID: {result.get('task_id')}")
     logger.info(f"  - 文档标题 (file_title): {result.get('file_title')}")
+    logger.info(f"  - 识别商品实体 (item_name): {result.get('item_name')}")
     logger.info(f"  - 转换规整 MD (md_path): {result.get('md_path')}")
     logger.info(f"  - 增强后正文长度 (字符数): {len(result.get('md_content', ''))}")
+    logger.info(f"  - 生成切片总数: {len(result.get('chunks', []))}")
+    logger.info(f"  - 向量化与入库数: {len(result.get('embeddings_content', []))}")
     logger.info(f"  - 分流标记: is_pdf={result.get('is_pdf_read_enabled')}, is_md={result.get('is_md_read_enabled')}")
