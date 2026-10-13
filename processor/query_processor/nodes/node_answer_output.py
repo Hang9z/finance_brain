@@ -27,15 +27,6 @@ def node_answer_output(state: QueryGraphState):
             final_text += ch
             push_to_session(session_id, SSEEvent.DELTA, {"delta": ch})
             time.sleep(0.02)
-        push_to_session(
-            session_id,
-            SSEEvent.FINAL,
-            {
-                "answer": final_text,
-                "status": "completed",
-                "image_urls": image_urls
-            }
-        )
     else:
         final_text = base_answer
 

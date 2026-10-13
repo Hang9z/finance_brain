@@ -1,7 +1,14 @@
 import json
 from pathlib import Path
+import sys
 import uuid
 from datetime import datetime
+
+# 确保直接运行脚本时能正确找到项目根目录
+_PROJECT_ROOT = str(Path(__file__).resolve().parent.parent)
+if _PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, _PROJECT_ROOT)
+
 import uvicorn
 from fastapi import FastAPI, BackgroundTasks, HTTPException, Request
 from fastapi.responses import FileResponse, StreamingResponse
@@ -10,7 +17,7 @@ from starlette.middleware.cors import CORSMiddleware
 from processor.query_processor.state import create_query_default_state
 
 from utils.task_utils import *
-from utils.sse_utils import create_sse_queue, SSEEvent, sse_generator
+from utils.sse_utils import create_sse_queue, get_sse_queue, SSEEvent, sse_generator
 from utils.clients.mongo_history_utils import *
 from processor.query_processor.main_graph import query_app
 
@@ -68,8 +75,10 @@ def query(request: QueryRequest, background_tasks: BackgroundTasks):
     is_stream = request.is_stream
     logger.info(f"用户提问: {user_query}, 当前会话id: {session_id}, 流式状态: {is_stream}")
     if is_stream:
+        # 提前同步创建 SSE 队列，确保前端收到响应后立刻连接 /stream/{session_id} 时队列已就绪
+        create_sse_queue(session_id)
         background_tasks.add_task(run_query_graph, session_id=session_id, is_stream=is_stream, user_query=user_query)
-        logger.info(f"[session_id] 流式任务已提交至后台执行")
+        logger.info(f"[{session_id}] 流式任务已提交至后台执行")
         return {
             "message": "结果正在处理中...",
             "session_id": session_id
@@ -91,8 +100,8 @@ def run_query_graph(session_id: str, user_query: str, is_stream: bool = True):
     try:
         clear_task(session_id)  # 清空上一次提问产生的数据
 
-        # 1. 如果是流式响应, 创建会话专属队列
-        if is_stream:
+        # 1. 如果是流式响应且队列尚未创建, 创建会话专属队列
+        if is_stream and get_sse_queue(session_id) is None:
             create_sse_queue(session_id)
 
         update_task_status(session_id, TASK_STATUS_PROCESSING, is_stream)
