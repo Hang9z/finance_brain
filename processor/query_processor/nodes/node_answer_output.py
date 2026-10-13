@@ -16,6 +16,10 @@ def node_answer_output(state: QueryGraphState):
     add_running_task(session_id, sys._getframe().f_code.co_name, is_stream)
 
     base_answer = state.get("answer") or f"关于「{state.get('original_query', '您的问题')}」的回答演示：请按照说明书标准接线使用。"
+    # 使用知识库 MinIO 中真实的万用表正面结构面板图（替代测试用的百度图片）
+    image_urls = state.get("image_urls") or [
+        "http://192.168.100.133:9000/knowledge-base-files/upload-images/万用表RS-12的使用/d6946861c4592804bd8d7e75b58029565712d4dc58f855e374bf0fcf370c91dd.jpg"
+    ]
     final_text = ""
 
     if is_stream and session_id:
@@ -23,10 +27,21 @@ def node_answer_output(state: QueryGraphState):
             final_text += ch
             push_to_session(session_id, SSEEvent.DELTA, {"delta": ch})
             time.sleep(0.02)
-        push_to_session(session_id, SSEEvent.FINAL, {"answer": final_text, "status": "completed"})
+        push_to_session(
+            session_id,
+            SSEEvent.FINAL,
+            {
+                "answer": final_text,
+                "status": "completed",
+                "image_urls": image_urls
+            }
+        )
     else:
         final_text = base_answer
 
     add_done_task(session_id, sys._getframe().f_code.co_name, is_stream)
     logger.info("--- node_answer_output 节点处理结束 ---")
-    return {"answer": final_text}
+    return {
+        "answer": final_text,
+        "image_urls": image_urls
+    }
