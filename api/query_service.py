@@ -4,11 +4,6 @@ import sys
 import uuid
 from datetime import datetime
 
-# 确保直接运行脚本时能正确找到项目根目录
-_PROJECT_ROOT = str(Path(__file__).resolve().parent.parent)
-if _PROJECT_ROOT not in sys.path:
-    sys.path.insert(0, _PROJECT_ROOT)
-
 import uvicorn
 from fastapi import FastAPI, BackgroundTasks, HTTPException, Request
 from fastapi.responses import FileResponse, StreamingResponse
@@ -21,6 +16,10 @@ from utils.sse_utils import create_sse_queue, get_sse_queue, SSEEvent, sse_gener
 from utils.clients.mongo_history_utils import *
 from processor.query_processor.main_graph import query_app
 
+# 确保直接运行脚本时能正确找到项目根目录
+_PROJECT_ROOT = str(Path(__file__).resolve().parent.parent)
+if _PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, _PROJECT_ROOT)
 
 class QueryRequest(BaseModel):
     """
@@ -31,6 +30,26 @@ class QueryRequest(BaseModel):
     session_id: str = Field(None, description="会话ID")
     is_stream: bool = Field(False, description="是否选择流式返回")
 
+class HistoryItem(BaseModel):
+    """
+    接收 mongoDB 返回的数据
+    """
+    id: str = Field(alias="_id", default="")
+    session_id: str
+    role: str = ""
+    text: str = ""
+    rewritten_query: str = ""
+    item_names: Optional[List[str]] = []
+    image_urls: Optional[List[str]] = []
+    ts: Optional[float] = None
+
+class HistoryResponse(BaseModel):
+    session_id: str
+    items: List[HistoryItem]
+
+class ClearHistoryResponse(BaseModel):
+    message: str = "History cleared"
+    deleted_count: int = Field(..., description="成功删除的消息条数", ge=0)
 
 """
  接口实现: 返回前端页面 1. chat
@@ -61,6 +80,35 @@ def chat():
         raise HTTPException(status_code=404, detail=f"没有查询到页面, 地址为: {chat_html_path}")
     logger.info("前端页面加载成功")
     return FileResponse(chat_html_path)
+
+@app.get("/history/{session_id}", response_model=HistoryResponse)
+def history(session_id: str, limit: int = 50):
+    f"""
+    从 mongoDB 中获取历史消息, 返回给前端
+    :param session_id: 会话id
+    :param limit: 消息条数
+    :return: {"session_id":}
+    """
+    records = get_recent_messages(session_id=session_id, limit=limit)
+    # 因为 mongoDB 中有主键 _id 类型是 ObjectId, 跟 python 中的定义冲突, 会被认为是私有化向量, 重命名
+    for r in records:
+        r["_id"] = str(r["_id"])
+    return {"session_id": session_id, "items": records}
+
+@app.delete("/history/{session_id}",
+            response_model=ClearHistoryResponse,
+            summary="清空指定会话的聊天历史",
+            description="根据 session_id 彻底物理删除该会话的所有历史消息")
+def clear_chat_history(session_id: str):
+    # 假设 clear_history 在数据库出错时会抛出异常, 由全局异常处理器接管
+    deleted_count = clear_history(session_id)
+
+    logger.info(f"会话 [{session_id}] 聊天记录已清空, 删除数量: {deleted_count}")
+
+    return {
+        "message": "History cleared",
+        "deleted_count": deleted_count
+    }
 
 @app.post("/query")
 def query(request: QueryRequest, background_tasks: BackgroundTasks):

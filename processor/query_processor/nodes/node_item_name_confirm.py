@@ -2,6 +2,7 @@ import time
 import sys
 from common.logging.logger import node_log, logger
 from processor.query_processor.state import QueryGraphState
+from utils.clients.mongo_history_utils import save_chat_message
 from utils.task_utils import add_running_task, add_done_task
 
 @node_log("node_item_name_confirm")
@@ -16,6 +17,15 @@ def node_item_name_confirm(state: QueryGraphState):
     is_stream = state.get("is_stream", False)
 
     add_running_task(session_id, sys._getframe().f_code.co_name, is_stream)
+    # 保存user消息到mongodb
+    save_chat_message(
+        session_id=state.get("session_id"),
+        role="user",
+        text=state.get("original_query"),
+        rewritten_query="这是重写问题",
+        item_names=["商品a", "商品b"],
+        image_urls=[]
+    )
     time.sleep(0.5)  # 模拟执行
     add_done_task(session_id, sys._getframe().f_code.co_name, is_stream)
 

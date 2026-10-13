@@ -2,6 +2,7 @@ import time
 import sys
 from common.logging.logger import logger, node_log
 from processor.query_processor.state import QueryGraphState
+from utils.clients.mongo_history_utils import save_chat_message
 from utils.sse_utils import push_to_session, SSEEvent
 from utils.task_utils import add_running_task, add_done_task
 @node_log("node_answer_output")
@@ -29,6 +30,15 @@ def node_answer_output(state: QueryGraphState):
             time.sleep(0.02)
     else:
         final_text = base_answer
+
+    save_chat_message(
+        session_id=state.get("session_id"),
+        role="assistant",
+        text=final_text,
+        rewritten_query="这是重写问题",
+        item_names=["商品a", "商品b"],
+        image_urls=image_urls
+    )
 
     add_done_task(session_id, sys._getframe().f_code.co_name, is_stream)
     logger.info("--- node_answer_output 节点处理结束 ---")
