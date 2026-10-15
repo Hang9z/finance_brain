@@ -68,6 +68,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.get("/")
 @app.get("/chat.html")
 def chat():
     """
@@ -162,13 +163,31 @@ def run_query_graph(session_id: str, user_query: str, is_stream: bool = True):
         )
         logger.info(f"查询图开始执行,传入参数:\n{json.dumps(state, indent=4, ensure_ascii=False)}")
 
-        # 3. 执行 LangGraph 图
+        # 3. 记录用户提问至 MongoDB 会话历史 (异常安全降级)
+        try:
+            save_chat_message(session_id=session_id, role="user", text=user_query)
+        except Exception as mongo_err:
+            logger.warning(f"[{session_id}] 写入用户提问至 MongoDB 失败 (降级忽略): {mongo_err}")
+
+        # 4. 执行 LangGraph 图
         state = query_app.invoke(state)
         logger.info(f"查询图执行结束,返回结果:\n{json.dumps(state, indent=4, ensure_ascii=False)}")
 
+        # 5. 记录助手回答及关联图片至 MongoDB 会话历史 (异常安全降级)
+        try:
+            save_chat_message(
+                session_id=session_id,
+                role="assistant",
+                text=state.get("answer", ""),
+                item_names=state.get("item_names", []),
+                image_urls=state.get("image_urls", [])
+            )
+        except Exception as mongo_err:
+            logger.warning(f"[{session_id}] 写入助手回答至 MongoDB 失败 (降级忽略): {mongo_err}")
+
         update_task_status(session_id, TASK_STATUS_COMPLETED, is_stream)
 
-        # 4. 流式模式下推送最终交付与关闭事件
+        # 6. 流式模式下推送最终交付与关闭事件
         if is_stream:
             push_to_session(
                 session_id,

@@ -2,8 +2,6 @@ from pathlib import Path
 import sys
 from typing import Any, Dict, List
 
-from torchgen.gen_functionalization_type import return_from_mutable_noop_redispatch
-
 # 确保脚本独立运行可正确识别项目根目录
 _PROJECT_ROOT = str(Path(__file__).resolve().parent.parent.parent.parent)
 if _PROJECT_ROOT not in sys.path:
