@@ -1,6 +1,12 @@
 import json
 from pathlib import Path
 import sys
+
+# 确保直接运行脚本时能正确找到项目根目录
+_PROJECT_ROOT = str(Path(__file__).resolve().parent.parent)
+if _PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, _PROJECT_ROOT)
+
 import uuid
 from datetime import datetime
 
@@ -15,11 +21,6 @@ from utils.task_utils import *
 from utils.sse_utils import create_sse_queue, get_sse_queue, SSEEvent, sse_generator
 from utils.clients.mongo_history_utils import *
 from processor.query_processor.main_graph import query_app
-
-# 确保直接运行脚本时能正确找到项目根目录
-_PROJECT_ROOT = str(Path(__file__).resolve().parent.parent)
-if _PROJECT_ROOT not in sys.path:
-    sys.path.insert(0, _PROJECT_ROOT)
 
 class QueryRequest(BaseModel):
     """

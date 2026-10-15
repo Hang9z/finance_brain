@@ -193,12 +193,12 @@ def step_4_select_item_names_milvus(item_names: List[str]) -> Dict[str, List[Dic
             limit=10
         )
 
-        # 在 kb_item_names 集合中检索
+        # 在 kb_item_names 集合中检索，商品名实体对齐以稠密语义相似度为主(0.8, 0.2)
         response = hybrid_search(
             client=milvus_client,
             collection_name=milvus_config.item_name_collection,
             reqs=reqs,
-            ranker_weights=(0.4, 0.6),
+            ranker_weights=(0.8, 0.2),
             norm_score=True,
             limit=5,
             output_fields=["item_name"]
@@ -218,6 +218,7 @@ def step_4_select_item_names_milvus(item_names: List[str]) -> Dict[str, List[Dic
             if name:
                 item_candidates.append({"item_name": name, "score": score})
 
+        logger.info(f"商品名称 [{item_name}] Milvus 检索命中候选: {item_candidates}")
         milvus_search_result[item_name] = item_candidates
 
     return milvus_search_result
