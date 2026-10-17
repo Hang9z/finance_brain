@@ -46,6 +46,14 @@ def node_item_name_confirm(state: QueryGraphState) -> QueryGraphState:
         extracted_names = llm_dict.get("item_names", [])
         rewritten_query = llm_dict.get("rewritten_query", original_query)
 
+        # 核心防御机制：若大模型未抽取出商品实体（例如用户直接输入文档名、型号代码或冷门主体），
+        # 降级将用户原始提问去除末尾标点后，作为候选实体送入 Milvus 进行比对检索
+        if not extracted_names and original_query.strip():
+            fallback_name = re.sub(r'[？?！!。，,\s]+$', '', original_query.strip())
+            if fallback_name:
+                logger.info(f"大模型未抽取出商品主体，触发兜底回退：将原始问句 '{fallback_name}' 作为候选实体检索")
+                extracted_names = [fallback_name]
+
         # 步骤 4：在 Milvus 的 kb_item_names 中检索标准名称
         milvus_dict = {}
         if extracted_names:
