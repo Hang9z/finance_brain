@@ -31,18 +31,263 @@
       background-color: var(--bg-surface);
       color: var(--text-primary);
       height: 100vh;
-      display: flex;
-      flex-direction: column;
       overflow: hidden;
       -webkit-font-smoothing: antialiased;
     }
 
-    .app {
-      width: 100%;
+    .app-layout {
+      width: 100vw;
       height: 100vh;
       display: flex;
-      flex-direction: column;
+      overflow: hidden;
       background: var(--bg-surface);
+    }
+
+    .app {
+      flex: 1;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      background: var(--bg-surface);
+      position: relative;
+    }
+
+    /* 左侧历史会话抽屉 */
+    .sidebar {
+      width: 270px;
+      height: 100%;
+      background: #f8fafc;
+      border-right: 1px solid var(--border-subtle);
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+      transition: margin-left 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      z-index: 30;
+      user-select: none;
+    }
+
+    .sidebar.collapsed {
+      margin-left: -270px;
+    }
+
+    .sidebar-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 16px 10px;
+    }
+
+    .sidebar-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .btn-collapse-sidebar {
+      background: transparent;
+      border: none;
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: var(--text-secondary);
+      transition: background 0.15s ease;
+      font-size: 16px;
+    }
+
+    .btn-collapse-sidebar:hover {
+      background: var(--bg-container-hover);
+      color: var(--text-primary);
+    }
+
+    .sidebar-action-wrap {
+      padding: 0 12px 10px;
+    }
+
+    .btn-new-chat {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 9px 16px;
+      border-radius: 12px;
+      background: var(--google-blue-light);
+      border: 1px solid rgba(11, 87, 208, 0.2);
+      color: var(--google-blue);
+      font-size: 13.5px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      font-family: inherit;
+    }
+
+    .btn-new-chat:hover {
+      background: #c3d9fb;
+      box-shadow: 0 2px 6px rgba(11, 87, 208, 0.15);
+    }
+
+    .session-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 4px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .session-list::-webkit-scrollbar {
+      width: 4px;
+    }
+    .session-list::-webkit-scrollbar-thumb {
+      background: #dadce0;
+      border-radius: 999px;
+    }
+
+    .session-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 10px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      border: 1px solid transparent;
+      color: var(--text-secondary);
+    }
+
+    .session-item:hover {
+      background: var(--bg-container);
+      color: var(--text-primary);
+    }
+
+    .session-item.active {
+      background: #e8f0fe;
+      border-color: rgba(11, 87, 208, 0.25);
+      color: var(--google-blue);
+    }
+
+    .session-icon {
+      font-size: 14px;
+      flex-shrink: 0;
+      opacity: 0.75;
+    }
+
+    .session-info {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .session-title {
+      font-size: 13px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      line-height: 1.35;
+      color: inherit;
+    }
+
+    .session-time {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .session-actions {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      opacity: 0;
+      transition: opacity 0.15s ease;
+    }
+
+    .session-item:hover .session-actions,
+    .session-item.active .session-actions {
+      opacity: 1;
+    }
+
+    .btn-session-action {
+      background: transparent;
+      border: none;
+      width: 22px;
+      height: 22px;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 12px;
+      color: var(--text-secondary);
+      transition: background 0.15s ease;
+      padding: 0;
+    }
+
+    .btn-session-action:hover {
+      background: rgba(0, 0, 0, 0.08);
+      color: var(--text-primary);
+    }
+
+    .session-empty {
+      text-align: center;
+      padding: 36px 12px;
+      color: var(--text-muted);
+      font-size: 13px;
+    }
+
+    .sidebar-footer {
+      padding: 10px 14px;
+      border-top: 1px solid var(--border-subtle);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 11.5px;
+      color: var(--text-muted);
+    }
+
+    .btn-clear-all-sessions {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-size: 11px;
+      cursor: pointer;
+      padding: 2px 6px;
+      border-radius: 4px;
+      transition: color 0.15s ease;
+    }
+
+    .btn-clear-all-sessions:hover {
+      background: var(--bg-container-hover);
+      color: #b3261e;
+    }
+
+    .btn-toggle-sidebar {
+      background: transparent;
+      border: 1px solid var(--border-subtle);
+      width: 34px;
+      height: 34px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: var(--text-secondary);
+      transition: all 0.15s ease;
+      margin-right: 4px;
+      flex-shrink: 0;
+    }
+
+    .btn-toggle-sidebar:hover {
+      background: var(--bg-container);
+      color: var(--text-primary);
     }
 
     /* 顶部导航栏：极简 Google 顶栏 */
@@ -174,47 +419,6 @@
       cursor: not-allowed;
     }
 
-    /* 多用户切换徽章与新建会话按钮 */
-    .user-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      padding: 4px 12px;
-      border-radius: 999px;
-      background: var(--bg-container);
-      border: 1px solid var(--border-subtle);
-      font-size: 13px;
-      color: var(--text-secondary);
-      font-weight: 500;
-    }
-
-    .user-select {
-      border: none;
-      background: transparent;
-      color: var(--text-primary);
-      font-size: 13px;
-      font-weight: 500;
-      outline: none;
-      cursor: pointer;
-      font-family: inherit;
-    }
-
-    .btn-new {
-      background: var(--google-blue-light);
-      color: var(--google-blue);
-      border: 1px solid rgba(11, 87, 208, 0.2);
-      padding: 6px 14px;
-      border-radius: 999px;
-      font-size: 13px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.2s ease;
-      font-family: inherit;
-    }
-
-    .btn-new:hover {
-      background: #c2d7fb;
-    }
 
     /* 聊天主视窗 */
     .chat {
@@ -572,46 +776,73 @@
   </style>
 </head>
 <body>
-  <div class="app">
-    <div class="topbar">
-      <div class="brand">
-        <div class="logo">
-          <!-- Gemini Sparkle SVG -->
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M12 2C12 7.52285 16.4772 12 22 12C16.4772 12 12 16.4772 12 22C12 16.4772 7.52285 12 2 12C7.52285 12 12 7.52285 12 2Z" fill="url(#gemini-grad)"/>
-            <defs>
-              <linearGradient id="gemini-grad" x1="2" y1="2" x2="22" y2="22" gradientUnits="userSpaceOnUse">
-                <stop stop-color="#4285F4"/>
-                <stop offset="0.5" stop-color="#9B72CB"/>
-                <stop offset="1" stop-color="#D96570"/>
-              </linearGradient>
-            </defs>
+  <div class="app-layout">
+    <!-- 左侧历史会话抽屉 -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <div class="sidebar-title">
+          <span>💬</span>
+          <span>历史会话</span>
+        </div>
+        <button class="btn-collapse-sidebar" id="btnCollapseSidebar" title="收起边栏">‹</button>
+      </div>
+
+      <div class="sidebar-action-wrap">
+        <button class="btn-new-chat" id="btnNewChat">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
           </svg>
+          <span>开启新对话</span>
+        </button>
+      </div>
+
+      <div class="session-list" id="sessionList">
+        <!-- 动态渲染历史会话条目 -->
+      </div>
+
+      <div class="sidebar-footer">
+        <span id="sessionCount">共 0 个会话</span>
+        <button class="btn-clear-all-sessions" id="btnClearAllSessions" title="清空所有历史会话">清空全部</button>
+      </div>
+    </aside>
+
+    <div class="app">
+      <div class="topbar">
+        <div class="brand">
+          <button class="btn-toggle-sidebar" id="btnToggleSidebar" title="展开/收起历史记录抽屉">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="3" y1="12" x2="21" y2="12"></line>
+              <line x1="3" y1="6" x2="21" y2="6"></line>
+              <line x1="3" y1="18" x2="21" y2="18"></line>
+            </svg>
+          </button>
+          <div class="logo">
+            <!-- Gemini Sparkle SVG -->
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M12 2C12 7.52285 16.4772 12 22 12C16.4772 12 12 16.4772 12 22C12 16.4772 7.52285 12 2 12C7.52285 12 12 7.52285 12 2Z" fill="url(#gemini-grad)"/>
+              <defs>
+                <linearGradient id="gemini-grad" x1="2" y1="2" x2="22" y2="22" gradientUnits="userSpaceOnUse">
+                  <stop stop-color="#4285F4"/>
+                  <stop offset="0.5" stop-color="#9B72CB"/>
+                  <stop offset="1" stop-color="#D96570"/>
+                </linearGradient>
+              </defs>
+            </svg>
+          </div>
+          <div class="title">
+            <strong>金融智脑 · 智能合规问答平台</strong>
+            <span id="subTitle">在线 · 覆盖财报 / 基金 / 银行理财 / 宏观政策 / 投教问答</span>
+          </div>
         </div>
-        <div class="title">
-          <strong>金融智脑 · 智能合规问答平台</strong>
-          <span id="subTitle">在线 · 覆盖财报 / 基金 / 银行理财 / 宏观政策 / 投教问答</span>
+        <div class="top-actions">
+          <label class="stream-label">
+            <input type="checkbox" id="streamToggle" checked> 流式输出
+          </label>
+          <span class="pill" id="apiPill">API: 未连接</span>
+          <button class="btn" id="btnClear" title="清空当前会话的历史对话">清空记录</button>
         </div>
       </div>
-      <div class="top-actions">
-        <div class="user-badge" title="当前身份/会话隔离标识（支持多用户独立隔离）">
-          <span>👤</span>
-          <select id="userSelector" class="user-select">
-            <option value="auto">独立会话 (标签页隔离)</option>
-            <option value="alice">投资者 Alice</option>
-            <option value="bob">投研经理 Bob</option>
-            <option value="compliance">合规审计 Carol</option>
-            <option value="custom">✍️ 自定义用户...</option>
-          </select>
-        </div>
-        <button class="btn-new" id="btnNewSession" title="新建独立会话，开启全新的空历史对话">➕ 新对话</button>
-        <label class="stream-label">
-          <input type="checkbox" id="streamToggle" checked> 流式输出
-        </label>
-        <span class="pill" id="apiPill">API: 未连接</span>
-        <button class="btn" id="btnClear" title="清空当前用户的历史对话">清空记录</button>
-      </div>
-    </div>
 
     <div class="chat" id="chat">
       <div class="dayline">今天</div>
@@ -650,6 +881,7 @@
       <div class="hint">金融智脑严格遵循合规准则，不构成任何投资建议 · 快捷键：<span class="kbd">Enter</span> 发送，<span class="kbd">Shift</span>+<span class="kbd">Enter</span> 换行</div>
     </div>
   </div>
+</div>
 
   <script>
     // 默认走查询服务同源地址；如你把页面单独打开（file://），回退到查询服务默认端口。
@@ -667,88 +899,275 @@
       inputEl.style.height = Math.min(inputEl.scrollHeight, 150) + 'px';
     });
 
-    // Session ID & 多用户访问隔离逻辑
-    const urlParams = new URLSearchParams(window.location.search);
-    const queryUser = urlParams.get('user') || urlParams.get('session');
-    const userSelector = document.getElementById('userSelector');
-    const btnNewSession = document.getElementById('btnNewSession');
+    // ==========================================
+    // 历史会话抽屉管理与本地持久化 (LocalStorage)
+    // ==========================================
+    const SESSIONS_KEY = 'finance_brain_sessions';
+    const ACTIVE_KEY = 'finance_brain_active_session';
+    const COLLAPSED_KEY = 'finance_brain_sidebar_collapsed';
+
+    const sidebarEl = document.getElementById('sidebar');
+    const btnToggleSidebar = document.getElementById('btnToggleSidebar');
+    const btnCollapseSidebar = document.getElementById('btnCollapseSidebar');
+    const btnNewChat = document.getElementById('btnNewChat');
+    const sessionListEl = document.getElementById('sessionList');
+    const sessionCountEl = document.getElementById('sessionCount');
+    const btnClearAllSessions = document.getElementById('btnClearAllSessions');
     const subTitleEl = document.getElementById('subTitle');
 
+    // 侧边栏折叠/展开记忆
+    if (localStorage.getItem(COLLAPSED_KEY) === 'true') {
+      sidebarEl.classList.add('collapsed');
+    }
+    function toggleSidebar() {
+      const isCollapsed = sidebarEl.classList.toggle('collapsed');
+      localStorage.setItem(COLLAPSED_KEY, isCollapsed ? 'true' : 'false');
+    }
+    if (btnToggleSidebar) btnToggleSidebar.addEventListener('click', toggleSidebar);
+    if (btnCollapseSidebar) btnCollapseSidebar.addEventListener('click', toggleSidebar);
+
+    // 获取本地会话列表
+    function getStoredSessions() {
+      try {
+        const raw = localStorage.getItem(SESSIONS_KEY);
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch (e) {
+        return [];
+      }
+    }
+
+    function saveStoredSessions(list) {
+      localStorage.setItem(SESSIONS_KEY, JSON.stringify(list));
+    }
+
+    // 相对时间展示
+    function formatRelativeTime(ts) {
+      if (!ts) return '刚刚';
+      const now = Date.now();
+      const diff = Math.floor((now - ts) / 1000);
+      if (diff < 60) return '刚刚';
+      if (diff < 3600) return `${Math.floor(diff / 60)}分钟前`;
+      
+      const d = new Date(ts);
+      const today = new Date();
+      if (d.toDateString() === today.toDateString()) {
+        return d.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+      }
+      return `${(d.getMonth() + 1).toString().padStart(2, '0')}-${d.getDate().toString().padStart(2, '0')}`;
+    }
+
+    let sessions = getStoredSessions();
+
     // 确定当前会话 ID:
-    // 1. 如果 URL 中指定了 ?user=xxx 或 ?session=xxx，优先级最高，强绑定该用户
-    // 2. 否则使用 sessionStorage（浏览器每个新建标签页/窗口自动拥有独立会话，互不串台与冲突！）
+    // 1. URL 参数中指定 ?session=xxx 或 ?user=xxx 优先
+    // 2. 否则取本地记录的 active session
+    // 3. 否则取 sessions 列表首项，或新建全新会话
+    const urlParams = new URLSearchParams(window.location.search);
+    const queryUser = urlParams.get('user') || urlParams.get('session');
     let sessionId = "";
+
     if (queryUser) {
       sessionId = queryUser.startsWith("sess-") || queryUser.startsWith("user_") ? queryUser : `user_${queryUser}`;
+      let found = sessions.find(s => s.id === sessionId);
+      if (!found) {
+        found = {
+          id: sessionId,
+          title: `用户 ${queryUser} 对话`,
+          createdAt: Date.now(),
+          updatedAt: Date.now()
+        };
+        sessions.unshift(found);
+        saveStoredSessions(sessions);
+      }
     } else {
-      sessionId = sessionStorage.getItem('kb_session_id');
-      if (!sessionId) {
-        sessionId = 'sess-' + Math.random().toString(36).slice(2, 8) + '-' + Date.now().toString(36);
-        sessionStorage.setItem('kb_session_id', sessionId);
-      }
-    }
-
-    function syncUserUI() {
-      if (!userSelector) return;
-      if (queryUser) {
-        const standardUsers = ['alice', 'bob', 'compliance'];
-        if (standardUsers.includes(queryUser)) {
-          userSelector.value = queryUser;
-        } else {
-          let customOpt = userSelector.querySelector('option[data-custom="true"]');
-          if (!customOpt) {
-            customOpt = document.createElement('option');
-            customOpt.setAttribute('data-custom', 'true');
-            userSelector.appendChild(customOpt);
-          }
-          customOpt.value = queryUser;
-          customOpt.textContent = `用户: ${queryUser}`;
-          userSelector.value = queryUser;
-        }
+      const savedActive = localStorage.getItem(ACTIVE_KEY) || sessionStorage.getItem('kb_session_id');
+      if (savedActive && sessions.some(s => s.id === savedActive)) {
+        sessionId = savedActive;
+      } else if (sessions.length > 0) {
+        sessionId = sessions[0].id;
       } else {
-        userSelector.value = 'auto';
-      }
-
-      if (subTitleEl) {
-        const displayTag = queryUser ? `当前用户: ${queryUser}` : `独立会话: ${sessionId.slice(0, 14)}`;
-        subTitleEl.textContent = `在线 · ${displayTag} · 覆盖财报 / 基金 / 银行理财 / 宏观政策 / 投教问答`;
+        sessionId = 'sess-' + Math.random().toString(36).slice(2, 8) + '-' + Date.now().toString(36);
+        sessions.unshift({
+          id: sessionId,
+          title: '新对话',
+          createdAt: Date.now(),
+          updatedAt: Date.now()
+        });
+        saveStoredSessions(sessions);
       }
     }
 
-    syncUserUI();
+    localStorage.setItem(ACTIVE_KEY, sessionId);
+    sessionStorage.setItem('kb_session_id', sessionId);
 
-    if (btnNewSession) {
-      btnNewSession.addEventListener('click', () => {
-        const newId = 'sess-' + Math.random().toString(36).slice(2, 8) + '-' + Date.now().toString(36);
-        sessionStorage.setItem('kb_session_id', newId);
-        if (window.location.search) {
-          window.location.href = window.location.pathname;
-        } else {
-          sessionId = newId;
-          syncUserUI();
-          resetChatView();
-        }
-      });
+    function updateSubTitle(title) {
+      if (!subTitleEl) return;
+      const display = title || (sessions.find(s => s.id === sessionId)?.title) || '新对话';
+      subTitleEl.textContent = `在线 · 会话: ${display} · 覆盖财报 / 基金 / 银行理财 / 宏观政策 / 投教问答`;
     }
 
-    if (userSelector) {
-      userSelector.addEventListener('change', (e) => {
-        const val = e.target.value;
-        if (val === 'custom') {
-          const customName = prompt('请输入模拟用户名或独立会话标识（例如：zhangsan、trader01）：');
-          if (customName && customName.trim()) {
-            const cleanName = encodeURIComponent(customName.trim());
-            window.location.search = `?user=${cleanName}`;
-          } else {
-            syncUserUI();
+    function renderSessionList() {
+      if (!sessionListEl) return;
+      sessionListEl.innerHTML = '';
+
+      if (sessions.length === 0) {
+        sessionListEl.innerHTML = '<div class="session-empty">暂无历史会话<br/><span style="font-size:11px;opacity:0.7;">点击上方按钮开启新对话</span></div>';
+        if (sessionCountEl) sessionCountEl.textContent = '共 0 个会话';
+        return;
+      }
+
+      if (sessionCountEl) sessionCountEl.textContent = `共 ${sessions.length} 个会话`;
+
+      sessions.forEach(item => {
+        const itemEl = document.createElement('div');
+        const isActive = item.id === sessionId;
+        itemEl.className = `session-item ${isActive ? 'active' : ''}`;
+        itemEl.setAttribute('data-id', item.id);
+        itemEl.title = item.title || '新对话';
+
+        itemEl.innerHTML = `
+          <div class="session-icon">💬</div>
+          <div class="session-info">
+            <div class="session-title">${escapeHtml(item.title || '新对话')}</div>
+            <div class="session-time">${formatRelativeTime(item.updatedAt || item.createdAt)}</div>
+          </div>
+          <div class="session-actions">
+            <button class="btn-session-action btn-rename" title="重命名会话">✏️</button>
+            <button class="btn-session-action btn-delete" title="删除会话">🗑️</button>
+          </div>
+        `;
+
+        // 切换会话
+        itemEl.addEventListener('click', (e) => {
+          if (e.target.closest('.btn-session-action')) return;
+          if (item.id === sessionId) return;
+          switchSession(item.id);
+        });
+
+        // 重命名
+        const btnRename = itemEl.querySelector('.btn-rename');
+        btnRename.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const newTitle = prompt('请输入新会话名称：', item.title || '新对话');
+          if (newTitle && newTitle.trim() && newTitle.trim() !== item.title) {
+            item.title = newTitle.trim();
+            item.updatedAt = Date.now();
+            saveStoredSessions(sessions);
+            renderSessionList();
+            if (item.id === sessionId) updateSubTitle(item.title);
           }
-        } else if (val === 'auto') {
-          sessionStorage.removeItem('kb_session_id');
-          window.location.href = window.location.pathname;
-        } else {
-          window.location.search = `?user=${val}`;
-        }
+        });
+
+        // 删除
+        const btnDelete = itemEl.querySelector('.btn-delete');
+        btnDelete.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          if (!confirm(`确定要删除会话「${item.title || '新对话'}」吗？历史消息将全部清除。`)) return;
+          
+          try {
+            fetch(`${API_BASE}/history/${item.id}`, { method: 'DELETE' }).catch(() => {});
+          } catch (_) {}
+
+          sessions = sessions.filter(s => s.id !== item.id);
+          saveStoredSessions(sessions);
+
+          if (item.id === sessionId) {
+            if (sessions.length > 0) {
+              switchSession(sessions[0].id);
+            } else {
+              createNewSession();
+            }
+          } else {
+            renderSessionList();
+          }
+        });
+
+        sessionListEl.appendChild(itemEl);
       });
+    }
+
+    async function switchSession(newId) {
+      sessionId = newId;
+      localStorage.setItem(ACTIVE_KEY, sessionId);
+      sessionStorage.setItem('kb_session_id', sessionId);
+      
+      const curr = sessions.find(s => s.id === sessionId);
+      updateSubTitle(curr ? curr.title : '新对话');
+      renderSessionList();
+      resetChatView();
+      await loadHistory(sessionId);
+    }
+
+    function createNewSession() {
+      const newId = 'sess-' + Math.random().toString(36).slice(2, 8) + '-' + Date.now().toString(36);
+      const newSession = {
+        id: newId,
+        title: '新对话',
+        createdAt: Date.now(),
+        updatedAt: Date.now()
+      };
+      sessions.unshift(newSession);
+      saveStoredSessions(sessions);
+
+      sessionId = newId;
+      localStorage.setItem(ACTIVE_KEY, sessionId);
+      sessionStorage.setItem('kb_session_id', sessionId);
+
+      if (window.location.search) {
+        window.history.replaceState({}, '', window.location.pathname);
+      }
+
+      resetChatView();
+      renderSessionList();
+      updateSubTitle('新对话');
+      inputEl.focus();
+    }
+
+    if (btnNewChat) {
+      btnNewChat.addEventListener('click', createNewSession);
+    }
+
+    if (btnClearAllSessions) {
+      btnClearAllSessions.addEventListener('click', async () => {
+        if (!confirm('确定要清空全部本地历史会话记录吗？')) return;
+        for (const s of sessions) {
+          try {
+            fetch(`${API_BASE}/history/${s.id}`, { method: 'DELETE' }).catch(() => {});
+          } catch (_) {}
+        }
+        sessions = [];
+        saveStoredSessions(sessions);
+        createNewSession();
+      });
+    }
+
+    // 首次提问时自动根据问题内容重命名会话标题
+    function autoIndexSession(queryText) {
+      if (!queryText) return;
+      let curr = sessions.find(s => s.id === sessionId);
+      if (!curr) {
+        curr = {
+          id: sessionId,
+          title: '新对话',
+          createdAt: Date.now(),
+          updatedAt: Date.now()
+        };
+        sessions.unshift(curr);
+      }
+
+      // 如果当前是初始名字或未命名，提取前 22 个字命名
+      if (curr.title === '新对话' || !curr.title || curr.title.startsWith('sess-')) {
+        const clean = queryText.replace(/[\r\n]+/g, ' ').trim();
+        curr.title = clean.length > 22 ? clean.slice(0, 22) + '...' : clean;
+      }
+      curr.updatedAt = Date.now();
+      
+      // 置顶最近更新的会话
+      sessions = [curr, ...sessions.filter(s => s.id !== sessionId)];
+      saveStoredSessions(sessions);
+      renderSessionList();
+      updateSubTitle(curr.title);
     }
 
     function resetChatView() {
@@ -1111,16 +1530,17 @@
       }
     }
 
-    async function loadHistory(){
+    async function loadHistory(targetId){
+      const sid = targetId || sessionId;
       try{
-        const res = await fetch(`${API_BASE}/history/${sessionId}`);
+        const res = await fetch(`${API_BASE}/history/${sid}`);
         if(!res.ok) return;
         const data = await res.json();
         const items = Array.isArray(data.items) ? data.items : [];
         if(items.length === 0) return;
         const nodes = Array.from(chatEl.querySelectorAll('.msg'));
         for(let i=1;i<nodes.length;i++) nodes[i].remove();
-        items.reverse()
+        items.reverse();
         for(const item of items){
           if(item.role === 'user'){
             addUserMsgWithTime(item.text || '', item.ts);
@@ -1179,6 +1599,7 @@
       if(!text) return;
       inputEl.value = '';
       inputEl.style.height = 'auto';
+      autoIndexSession(text);
       addUserMsg(text);
       const botMsgEl = addBotMsgSkeleton();
       sendBtn.disabled = true;
@@ -1314,14 +1735,14 @@
         alert('服务端清空失败，仅清空本地显示');
       }
 
-      const nodes = Array.from(chatEl.querySelectorAll('.msg'));
-      for(let i=1;i<nodes.length;i++) nodes[i].remove();
-      scrollToBottom();
+      resetChatView();
     });
 
     apiHealth();
     setInterval(apiHealth, 5000);
-    loadHistory();
+    renderSessionList();
+    updateSubTitle();
+    loadHistory(sessionId);
     setTimeout(() => inputEl.focus(), 200);
   </script>
 </body>
