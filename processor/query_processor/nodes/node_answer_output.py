@@ -106,6 +106,15 @@ def step_3_get_history_by_session_id(session_id: str) -> list[dict]:
         return []
 
 
+MANDATORY_DISCLAIMER = (
+    "\n\n【合规免责声明】\n"
+    "本回答基于公开资料与知识库检索结果生成，仅供金融知识科普与资料查询参考，"
+    "不构成任何投资建议、买卖要约或收益保证。市场有风险，投资需谨慎。"
+    "投资者在作出投资决策前应认真阅读正式法律文件、产品合同、招募说明书及风险揭示书，"
+    "并根据自身风险承受能力独立审慎决策。"
+)
+
+
 @step_log("step_4_create_answer_prompt")
 def step_4_create_answer_prompt(
     reranked_docs: list[dict],
@@ -113,27 +122,29 @@ def step_4_create_answer_prompt(
     item_names: list[str],
     rewritten_query: str,
 ) -> str:
-    """拼装参考切片、历史上下文与提示词"""
+    """拼装参考切片、历史上下文与金融专属合规提示词"""
     # 1. 组装参考切片上下文
     if reranked_docs:
         context_parts = []
         for idx, doc in enumerate(reranked_docs, start=1):
-            source_type = "联网搜索" if doc.get("type") == "web" else "内部知识库"
-            title = doc.get("title", "")
+            source_type = "联网搜索" if doc.get("type") == "web" else "内部金融知识库"
+            doc_file = doc.get("file_title") or doc.get("title") or "参考资料"
+            entity_tag = f" | 产品/主体: {doc.get('item_name')}" if doc.get("item_name") else ""
+            parent_tag = f" | 章节/条款: {doc.get('parent_title')}" if doc.get("parent_title") else ""
             score = doc.get("score", 0.0)
             text = doc.get("text", "").strip()
             context_parts.append(
-                f"[{idx}] 来源: {source_type} | 标题: {title} | 置信度: {score:.4f}\n{text}"
+                f"[{idx}] 来源: {source_type} | 资料: 《{doc_file}》{entity_tag}{parent_tag} | 置信度: {score:.4f}\n{text}"
             )
         context_str = "\n\n".join(context_parts)
     else:
-        context_str = "（未检索到直接相关的说明书资料或外网网页）"
+        context_str = "（知识库中暂未检索到直接相关的金融产品资料、公告或外网网页）"
 
     # 2. 组装历史会话
     if history_message:
         history_parts = []
         for idx, h in enumerate(history_message, start=1):
-            role_label = "用户" if h.get("role") == "user" else "掌柜智库"
+            role_label = "用户" if h.get("role") == "user" else "金融智脑"
             text = h.get("text", "")[:150]
             history_parts.append(f"{role_label}: {text}")
         history_str = "\n".join(history_parts)
@@ -141,7 +152,7 @@ def step_4_create_answer_prompt(
         history_str = "（无前序历史对话）"
 
     # 3. 关联实体
-    item_names_str = "、".join(item_names) if item_names else "通用设备/未明确具体型号"
+    item_names_str = "、".join(item_names) if item_names else "通用金融概念/未指定具体产品"
 
     # 4. 加载并渲染外部提示词模版
     answer_prompt = load_prompt(
@@ -156,7 +167,7 @@ def step_4_create_answer_prompt(
 
 @step_log("step_5_call_llm_create_answer")
 def step_5_call_llm_create_answer(answer_prompt: str, is_stream: bool, session_id: str) -> str:
-    """调用大模型生成答案，流式模式下实时向前端推送 DELTA 事件"""
+    """调用大模型生成答案，流式模式下实时向前端推送 DELTA 事件，并执行合规兜底保障"""
     llm_client = get_llm_client()
     answer_text = ""
 
@@ -174,7 +185,16 @@ def step_5_call_llm_create_answer(answer_prompt: str, is_stream: bool, session_i
         response = llm_client.invoke([message])
         answer_text = response.content if hasattr(response, "content") else str(response)
 
-    return answer_text.strip()
+    answer_text = answer_text.strip()
+
+    # 合规安全兜底检查：若大模型回答缺失【合规免责声明】区块，自动补齐
+    if "【合规免责声明】" not in answer_text:
+        logger.warning(f"[{session_id}] 答案缺失【合规免责声明】，自动追加法定合规提示")
+        if is_stream and session_id:
+            push_to_session(session_id, SSEEvent.DELTA, {"delta": MANDATORY_DISCLAIMER})
+        answer_text += MANDATORY_DISCLAIMER
+
+    return answer_text
 
 
 @step_log("step_6_extract_chunk_and_url_image")

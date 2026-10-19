@@ -8,8 +8,12 @@ load_dotenv()
 
 @dataclass
 class WebSearchConfig:
-    # 联网搜索服务提供方: "brave" (默认推荐，速度快质量高) 或 "bailian_mcp" (阿里百炼 MCP)
+    # 联网搜索服务提供方: "deepseek" (首选推荐，原生专业搜索), "brave" 或 "bailian_mcp"
     provider: str
+
+    # DeepSeek 网页搜索配置
+    deepseek_api_key: str
+    deepseek_base_url: str
 
     # Brave Search 配置
     brave_api_key: str
@@ -22,7 +26,9 @@ class WebSearchConfig:
 
 # 统一实例化联网搜索配置
 web_search_config = WebSearchConfig(
-    provider=os.getenv("WEB_SEARCH_PROVIDER", "brave").strip().lower(),
+    provider=os.getenv("WEB_SEARCH_PROVIDER", "deepseek").strip().lower(),
+    deepseek_api_key=os.getenv("DEEPSEEK_API_KEY", "").strip() or os.getenv("OPENAI_API_KEY", "").strip(),
+    deepseek_base_url=os.getenv("DEEPSEEK_SEARCH_BASE_URL", "https://api.deepseek.com/v1/tools/search").strip(),
     brave_api_key=os.getenv("BRAVE_SEARCH_API_KEY", "").strip(),
     brave_base_url=os.getenv("BRAVE_SEARCH_BASE_URL", "https://api.search.brave.com/res/v1/llm/context").strip(),
     mcp_base_url=os.getenv("MCP_DASHSCOPE_BASE_URL", "https://dashscope.aliyuncs.com/api/v1/mcps/WebSearch/mcp").strip(),

@@ -62,8 +62,8 @@ def get_llm_client(model: Optional[str] = None, json_mode: bool = False) -> Chat
             temperature=lm_config.llm_temperature or 0.1,  # 低温度保证输出确定性（0~1）
             api_key=lm_config.api_key,  # API密钥
             base_url=lm_config.base_url,  # API基础地址（适配国产模型代理地址）
-            request_timeout=35.0,  # 显式设置超时时间，防止海外网络挂起卡死
-            max_retries=1,  # 适度重试防抖动
+            request_timeout=60.0,  # 显式设置超时时间，防止海外网络或推理思考阶段挂起卡死
+            max_retries=2,  # 适度重试防抖动
             extra_body=extra_body,  # 国产模型私有参数透传
             model_kwargs=model_kwargs,  # OpenAI通用参数
         )

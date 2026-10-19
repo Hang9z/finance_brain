@@ -39,8 +39,14 @@ def node_web_search_mcp(state: QueryGraphState):
     provider = web_search_config.provider
     logger.info(f"[{session_id}] 启动联网搜索, 引擎提供方: {provider}")
 
-    if provider == "brave":
+    web_search_docs = []
+    if provider == "deepseek":
+        web_search_docs = step_2_search_deepseek(rewritten_query, count=5)
+    elif provider == "brave":
         web_search_docs = step_2_search_brave(rewritten_query, count=5)
+    else:
+        # 默认优先 deepseek，其次 brave 兜底
+        web_search_docs = step_2_search_deepseek(rewritten_query, count=5) or step_2_search_brave(rewritten_query, count=5)
 
     add_done_task(session_id, sys._getframe().f_code.co_name, is_stream)
     return {"web_search_docs": web_search_docs}
@@ -56,6 +62,70 @@ def step_1_validate_and_get_data(state: QueryGraphState) -> str:
     if not rewritten_query:
         rewritten_query = state.get("original_query", "").strip()
     return rewritten_query
+
+@step_log("step_2_search_deepseek")
+def step_2_search_deepseek(query: str, count: int = 5) -> list[dict]:
+    """
+    调用 DeepSeek Search API 进行原生高质量金融与网页检索
+    :param query: 关键词
+    :param count: 期望召回网页数量
+    :return: [{"title": ..., "url": ..., "snippet": ...}]
+    """
+    api_key = web_search_config.deepseek_api_key
+    base_url = web_search_config.deepseek_base_url
+
+    if not api_key:
+        logger.warning("[step_2_search_deepseek] 未配置 DEEPSEEK_API_KEY，跳过 DeepSeek 联网检索")
+        return []
+
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json"
+    }
+    payload = {
+        "query": query,
+        "count": min(count, 50),
+        "need_content": False
+    }
+
+    # 3 次网络重试
+    for attempt in range(1, 4):
+        try:
+            res = requests.post(base_url, headers=headers, json=payload, timeout=25)
+            if res.status_code != 200:
+                logger.warning(f"[step_2_search_deepseek] 第 {attempt} 次请求返回状态码 {res.status_code}: {res.text[:200]}")
+                time.sleep(attempt * 0.8)
+                continue
+
+            data = res.json()
+            raw_results = data.get("results", [])
+            clean_docs: list[dict] = []
+
+            for item in raw_results:
+                if not isinstance(item, dict):
+                    continue
+                title = (item.get("title") or "").strip()
+                url = (item.get("url") or "").strip()
+                # 优先使用专门面向模型理解的 summary 字段，兜底使用 snippet
+                snippet_text = (item.get("summary") or item.get("snippet") or "").strip()
+
+                if snippet_text:
+                    clean_docs.append({
+                        "title": title,
+                        "url": url,
+                        "snippet": snippet_text[:800],
+                        "rerank_score": item.get("rerank_score", 0.0)
+                    })
+
+            logger.info(f"[step_2_search_deepseek] 成功从 DeepSeek 检索到 {len(clean_docs)} 条优质结果")
+            return clean_docs[:count]
+
+        except Exception as e:
+            logger.warning(f"[step_2_search_deepseek] 第 {attempt} 次请求异常: {e}")
+            time.sleep(attempt * 0.8)
+
+    logger.error("[step_2_search_deepseek] DeepSeek Search 请求最终失败，降级返回空列表")
+    return []
 
 @step_log("step_2_search_brave")
 def step_2_search_brave(query: str, count: int = 5) -> list[dict]:

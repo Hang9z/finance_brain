@@ -55,17 +55,29 @@ def node_entry(state: ImportGraphState) -> ImportGraphState:
     if suffix == ".pdf":
         state["is_pdf_read_enabled"] = True
         state["is_md_read_enabled"] = False
+        state["is_doc_read_enabled"] = False
         state["pdf_path"] = str(file_path)
-        state["md_path"] = None  # 互斥置空，防止残留脏数据
+        state["doc_path"] = None
+        state["md_path"] = None
         logger.info(f"[node_entry] 检测到 PDF 文件, 已激活 PDF 处理流程: {file_path.name}")
+    elif suffix in (".docx", ".doc"):
+        state["is_doc_read_enabled"] = True
+        state["is_pdf_read_enabled"] = False
+        state["is_md_read_enabled"] = False
+        state["doc_path"] = str(file_path)
+        state["pdf_path"] = None
+        state["md_path"] = None
+        logger.info(f"[node_entry] 检测到 Word 文档 ({suffix}), 已激活 Word 转换流程: {file_path.name}")
     elif suffix == ".md":
         state["is_md_read_enabled"] = True
         state["is_pdf_read_enabled"] = False
+        state["is_doc_read_enabled"] = False
         state["md_path"] = str(file_path)
-        state["pdf_path"] = None  # 互斥置空，防止残留脏数据
+        state["pdf_path"] = None
+        state["doc_path"] = None
         logger.info(f"[node_entry] 检测到 Markdown 文件, 已激活 Markdown 处理流程: {file_path.name}")
     else:
-        logger.warning(f"[node_entry] 不支持的文件类型: '{suffix}', 当前仅支持 .pdf 与 .md 文件, 终止流程")
+        logger.warning(f"[node_entry] 不支持的文件类型: '{suffix}', 当前支持 .pdf, .docx, .doc, .md 文件, 终止流程")
         return state
 
     # 8. 任务状态追踪: 记录当前节点已处理完成

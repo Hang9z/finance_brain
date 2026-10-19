@@ -2,8 +2,9 @@ import os
 import shutil
 import time
 from pathlib import Path
-from typing import Tuple
+from typing import Tuple, List
 
+import fitz
 import requests
 
 from common.config.mineru_config import mineru_config
@@ -12,15 +13,28 @@ from processor.import_processor.state import ImportGraphState, create_default_st
 from utils.path_util import PROJECT_ROOT
 from utils.task_utils import add_running_task, add_done_task
 
+# MinerU 单次请求最大页数限制（默认 200 页，支持环境变量覆盖）
+MAX_PAGES_PER_BATCH = int(os.getenv("MINERU_MAX_PAGES_PER_BATCH", 200))
+
+
+def get_pdf_page_count(pdf_path: Path) -> int:
+    """获取 PDF 文件总页数"""
+    try:
+        with fitz.open(pdf_path) as doc:
+            return len(doc)
+    except Exception as e:
+        logger.warning(f"[node_pdf_to_md] 读取 PDF 页数异常，默认回退单卷模式: {e}")
+        return 1
+
 @node_log("node_pdf_to_md")
 def node_pdf_to_md(state: ImportGraphState) -> ImportGraphState:
     """
     节点: PDF转Markdown (node_pdf_to_md)
-    为什么叫这个名字: 核心任务是将 PDF 非结构化数据转换为 Markdown 结构化数据。
-    未来要实现:
-    1. 调用 MinerU (magic-pdf) 工具。
-    2. 将 PDF 转换成 Markdown 格式。
-    3. 将结果保存到 state["md_content"]。
+    核心任务:
+    1. 校验 PDF 文件有效性与页数。
+    2. 若总页数 <= 200 页，直接调用 MinerU 统一解析。
+    3. 若总页数 > 200 页，自动切分为多个分卷 PDF（每卷 <= 200 页），分卷提交 MinerU 解析后无缝合并。
+    4. 将结果保存到 state["md_path"]。
     """
     # 1. 任务状态追踪记录
     add_running_task(state["task_id"], "node_pdf_to_md")
@@ -28,18 +42,20 @@ def node_pdf_to_md(state: ImportGraphState) -> ImportGraphState:
     # 2. 校验路径和物理文件
     pdf_path_obj, local_dir_obj = step_1_validate_and_get_data(state)
 
-    # 3. 解析结果压缩包的下载地址
-    # 函数step2: 上传并轮询解析结果, 返回值是下载地址
-    zip_url = step_2_upload_and_poll(pdf_path_obj)
+    # 3. 页数校验与智能路由
+    total_pages = get_pdf_page_count(pdf_path_obj)
+    if total_pages > MAX_PAGES_PER_BATCH:
+        logger.info(f"[node_pdf_to_md] 文档 [{pdf_path_obj.name}] 共 {total_pages} 页，超过单次解析限制 ({MAX_PAGES_PER_BATCH} 页)，启用自动分卷解析流水线")
+        md_path = step_split_upload_and_merge(pdf_path_obj, local_dir_obj, total_pages, MAX_PAGES_PER_BATCH)
+    else:
+        # 单卷标准解析
+        zip_url = step_2_upload_and_poll(pdf_path_obj)
+        md_path = step_3_download_and_extract(zip_url, local_dir_obj, pdf_path_obj.stem)
 
-    # 4. 下载后文件存哪里
-    # 函数step3: 下载 ZIP 包, 解压并规整为 Markdown 文件, 返回值是下载后文件存储到本地的地址
-    md_path = step_3_download_and_extract(zip_url, local_dir_obj, pdf_path_obj.stem)
-
-    # 5. 更新状态
+    # 4. 更新状态
     state["md_path"] = str(md_path)
 
-    # 6. 更新任务状态
+    # 5. 更新任务状态
     add_done_task(state["task_id"], "node_pdf_to_md")
     return state
 
@@ -261,6 +277,80 @@ def step_3_download_and_extract(zip_url: str, local_dir_obj: Path, stem: str) ->
     # 6. 规整重命名为统一规范文件名 ({stem}.md)
     final_md_path = target_md_obj.rename(target_md_obj.with_name(f"{stem}.md"))
     logger.info(f"[node_pdf_to_md] Markdown 文档处理完成，最终落盘路径: {final_md_path}")
+
+    return final_md_path
+
+@step_log("step_split_upload_and_merge")
+def step_split_upload_and_merge(pdf_path_obj: Path, local_dir_obj: Path, total_pages: int, max_pages: int = MAX_PAGES_PER_BATCH) -> Path:
+    """
+    分卷处理超大 PDF 文件（突破 MinerU 单次 <= 200 页限制）:
+    1. 计算分卷区间并使用 PyMuPDF 物理切分生成临时子 PDF
+    2. 对每个子 PDF 单独调用 step_2_upload_and_poll 与 step_3_download_and_extract
+    3. 按序拼接各个子分卷的 Markdown 内容
+    4. 汇总各分卷解析出的图片资源至统一的 images 目录
+    5. 输出最终整合后的 Markdown 文件并清理临时分卷文件
+    """
+    stem = pdf_path_obj.stem
+    temp_parts_dir = local_dir_obj / f"{stem}_temp_parts"
+    temp_parts_dir.mkdir(parents=True, exist_ok=True)
+
+    final_dir = local_dir_obj / stem
+    final_dir.mkdir(parents=True, exist_ok=True)
+    final_images_dir = final_dir / "images"
+    final_images_dir.mkdir(parents=True, exist_ok=True)
+
+    part_pdf_files: List[Path] = []
+
+    # 1. 切分 PDF
+    with fitz.open(pdf_path_obj) as src_doc:
+        part_idx = 1
+        for start_page in range(0, total_pages, max_pages):
+            end_page = min(start_page + max_pages - 1, total_pages - 1)
+            part_name = f"{stem}_part{part_idx}.pdf"
+            part_path = temp_parts_dir / part_name
+            part_pdf_files.append(part_path)
+
+            sub_doc = fitz.open()
+            sub_doc.insert_pdf(src_doc, from_page=start_page, to_page=end_page)
+            sub_doc.save(part_path)
+            sub_doc.close()
+            logger.info(f"[node_pdf_to_md] 成功拆分分卷 [{part_idx}]: 页码 {start_page + 1}~{end_page + 1} -> {part_name}")
+            part_idx += 1
+
+    # 2. 逐卷上传与解析
+    merged_md_sections = []
+    total_parts = len(part_pdf_files)
+    for idx, part_pdf in enumerate(part_pdf_files, 1):
+        logger.info(f"[node_pdf_to_md] 开始处理分卷 [{idx}/{total_parts}]: {part_pdf.name}")
+        part_zip_url = step_2_upload_and_poll(part_pdf)
+        part_md_path = step_3_download_and_extract(part_zip_url, temp_parts_dir, part_pdf.stem)
+
+        # 读取分卷 Markdown
+        part_content = part_md_path.read_text(encoding="utf-8")
+        merged_md_sections.append(part_content)
+
+        # 汇总图片资源
+        part_img_dir = part_md_path.parent / "images"
+        if part_img_dir.is_dir():
+            for img_file in part_img_dir.iterdir():
+                if img_file.is_file():
+                    target_img = final_images_dir / img_file.name
+                    try:
+                        shutil.copy2(img_file, target_img)
+                    except Exception as e:
+                        logger.warning(f"[node_pdf_to_md] 复制分卷图片失败: {e}")
+
+    # 3. 规整并保存合并后的 Markdown 文件
+    final_md_path = final_dir / f"{stem}.md"
+    final_md_content = "\n\n".join(merged_md_sections)
+    final_md_path.write_text(final_md_content, encoding="utf-8")
+    logger.info(f"[node_pdf_to_md] 超长文档所有分卷合并完成，落盘路径: {final_md_path}")
+
+    # 4. 临时目录清理
+    try:
+        shutil.rmtree(temp_parts_dir, ignore_errors=True)
+    except Exception as e:
+        logger.warning(f"[node_pdf_to_md] 清理临时分卷目录异常: {e}")
 
     return final_md_path
 

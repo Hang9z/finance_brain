@@ -46,15 +46,16 @@ def node_item_name_confirm(state: QueryGraphState) -> QueryGraphState:
         extracted_names = llm_dict.get("item_names", [])
         rewritten_query = llm_dict.get("rewritten_query", original_query)
 
-        # 核心防御机制：若大模型未抽取出商品实体（例如用户直接输入文档名、型号代码或冷门主体），
-        # 降级将用户原始提问去除末尾标点后，作为候选实体送入 Milvus 进行比对检索
+        # 若大模型未抽取出金融实体，且用户输入简短（如直接输入产品简称或代码），回退检索
+        # 若用户输入包含疑问词或属于通用金融概念（如“什么是最大回撤？”、“如何开户？”），保持 extracted_names 为空
         if not extracted_names and original_query.strip():
-            fallback_name = re.sub(r'[？?！!。，,\s]+$', '', original_query.strip())
-            if fallback_name:
-                logger.info(f"大模型未抽取出商品主体，触发兜底回退：将原始问句 '{fallback_name}' 作为候选实体检索")
-                extracted_names = [fallback_name]
+            clean_q = re.sub(r'[？?！!。，,\s]+$', '', original_query.strip())
+            is_generic_question = any(w in clean_q for w in ["什么是", "如何", "怎么", "区别", "哪些", "多少", "是否", "为什么", "规则", "流程", "规定", "介绍一下"])
+            if clean_q and len(clean_q) <= 20 and not is_generic_question:
+                logger.info(f"大模型未抽取出金融主体，属于简短主体提问，触发兜底实体检索: '{clean_q}'")
+                extracted_names = [clean_q]
 
-        # 步骤 4：在 Milvus 的 kb_item_names 中检索标准名称
+        # 步骤 4：在 Milvus 的 finance_item_names 中检索标准名称
         milvus_dict = {}
         if extracted_names:
             milvus_dict = step_4_select_item_names_milvus(extracted_names)
@@ -62,7 +63,7 @@ def node_item_name_confirm(state: QueryGraphState) -> QueryGraphState:
         # 步骤 5：依据分数阈值分离确信与候选列表
         confirmed_dict = step_5_select_confirmed_and_option_item_names(milvus_dict)
 
-        # 步骤 6：显式更新 state 属性（更新 item_names / rewritten_query 或 answer）
+        # 步骤 6：显式更新 state 属性（确信实体过滤、歧义反问或放行全量检索）
         step_6_change_state_property(state, rewritten_query, confirmed_dict)
 
         # 步骤 7：保存当前提问到 MongoDB 历史
@@ -266,17 +267,18 @@ def step_6_change_state_property(state: QueryGraphState, rewritten_query: str, c
         return
 
     if option_list:
-        # 场景 2: 候选反问
+        # 场景 2: 候选反问（当用户提问存在多个相近金融产品/机构时）
         options_text = "、".join(option_list)
-        state["answer"] = f"请问您指的是以下哪款商品呢：{options_text}？请明确后再次提问。"
+        state["answer"] = f"请问您指的是以下哪项金融产品或资料呢：{options_text}？请明确后再次提问。"
         state["rewritten_query"] = rewritten_query
-        logger.info(f"主体存在歧义，已更新 state['answer'] 为候选反问")
+        logger.info(f"金融主体存在歧义，已更新 state['answer'] 为候选反问: {options_text}")
         return
 
-    # 场景 3: 未收录兜底
-    state["answer"] = f"抱歉, 知识库中暂未找到与“{state.get('original_query')}” 相关的商品"
-    state["rewritten_query"] = state.get("original_query", "")
-    logger.info("未匹配到有效商品主体, 已更新 state['answer'] 为兜底提示")
+    # 场景 3: 未锁定单一具体金融产品（如通用概念、法规政策、投教FAQ、宏观分析或跨产品泛问）
+    # 核心设计：不设 answer，保持 item_names 为空，放行进入全量知识库切片混合检索与联网搜索
+    state["item_names"] = []
+    state["rewritten_query"] = rewritten_query
+    logger.info(f"未锁定特定金融产品实体，放行至全知识库向量检索与外网搜索: rewritten_query='{rewritten_query}'")
 
 def step_7_save_user_chat_message(state: QueryGraphState) -> None:
     """

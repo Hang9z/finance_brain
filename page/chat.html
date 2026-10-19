@@ -1,263 +1,531 @@
-<!-- 查询演示页面，用于体验普通问答与流式响应。 -->
+<!-- 查询演示页面，用于体验普通问答与流式响应（Gemini 风格重制版） -->
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1.0" />
-  <title>掌柜智库知识库</title>
+  <title>金融智脑 · 智能合规问答平台</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Noto+Sans+SC:wght@400;500;600&display=swap" rel="stylesheet">
   <style>
-    :root{
-      --bg:#f3f5f7;
-      --panel:#ffffff;
-      --text:#1f2d3d;
-      --muted:#7a869a;
-      --brand:#1aa7ff;
-      --brand2:#5b7cfa;
-      --bubble-user:#1aa7ff;
-      --bubble-bot:#ffffff;
-      --border:#e6e9ef;
-      --shadow:0 10px 30px rgba(31,45,61,.12);
+    :root {
+      --bg-surface: #ffffff;
+      --bg-container: #f0f4f9;
+      --bg-container-hover: #e1e5ea;
+      --text-primary: #1f1f1f;
+      --text-secondary: #444746;
+      --text-muted: #747775;
+      --google-blue: #0b57d0;
+      --google-blue-light: #d3e3fd;
+      --border-subtle: #e3e3e3;
+      --gemini-gradient: linear-gradient(135deg, #4285f4 0%, #9b72cb 50%, #d96570 100%);
+      --gemini-soft-bg: linear-gradient(135deg, rgba(66,133,244,0.08) 0%, rgba(155,114,203,0.08) 50%, rgba(217,101,112,0.08) 100%);
     }
-    *{box-sizing:border-box}
-    body{
-      margin:0;
-      font-family: "Segoe UI", "Microsoft YaHei", system-ui, -apple-system, Arial, sans-serif;
-      background: radial-gradient(1200px 600px at 20% 0%, rgba(26,167,255,.18), transparent 60%),
-                  radial-gradient(1000px 500px at 90% 10%, rgba(91,124,250,.18), transparent 55%),
-                  var(--bg);
-      color:var(--text);
-      height:100vh;
-      display:flex;
-      justify-content:center;
-      align-items:center;
-      padding:18px;
-    }
-    .app{
-      width:100%;
-      max-width:980px;
-      height:min(820px, 92vh);
-      background:var(--panel);
-      border:1px solid var(--border);
-      border-radius:16px;
-      box-shadow:var(--shadow);
-      overflow:hidden;
-      display:flex;
-      flex-direction:column;
-    }
-    .topbar{
-      display:flex;
-      align-items:center;
-      gap:12px;
-      padding:14px 18px;
-      border-bottom:1px solid var(--border);
-      background:linear-gradient(90deg, rgba(26,167,255,.10), rgba(91,124,250,.10));
-    }
-    .brand{
-      display:flex;
-      align-items:center;
-      gap:10px;
-      min-width:240px;
-    }
-    .logo{
-      width:36px;height:36px;border-radius:10px;
-      background:linear-gradient(135deg, var(--brand), var(--brand2));
-      box-shadow:0 8px 18px rgba(26,167,255,.25);
-    }
-    .title{
-      display:flex;
-      flex-direction:column;
-      line-height:1.1;
-    }
-    .title strong{font-size:14px}
-    .title span{font-size:12px;color:var(--muted);margin-top:3px}
-    .top-actions{
-      margin-left:auto;
-      display:flex;
-      gap:10px;
-      align-items:center;
-    }
-    .pill{
-      font-size:12px;
-      color:var(--muted);
-      border:1px solid var(--border);
-      padding:6px 10px;
-      border-radius:999px;
-      background:#fff;
-    }
-    .btn{
-      border:none;
-      background:linear-gradient(135deg, var(--brand), var(--brand2));
-      color:#fff;
-      padding:8px 12px;
-      border-radius:10px;
-      font-size:12px;
-      cursor:pointer;
-    }
-    .btn:disabled{opacity:.6;cursor:not-allowed}
 
-    .chat{
-      flex:1;
-      overflow:auto;
-      padding:16px 14px 10px;
-      background:linear-gradient(180deg, rgba(26,167,255,.05), transparent 40%),
-                 linear-gradient(0deg, rgba(91,124,250,.05), transparent 45%);
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: 'Inter', 'Noto Sans SC', "Google Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background-color: var(--bg-surface);
+      color: var(--text-primary);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      -webkit-font-smoothing: antialiased;
     }
-    .dayline{
-      text-align:center;
-      color:var(--muted);
-      font-size:12px;
-      margin:6px 0 14px;
+
+    .app {
+      width: 100%;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      background: var(--bg-surface);
     }
-    .msg{
-      display:flex;
-      gap:10px;
-      margin:10px 0;
-      align-items:flex-end;
+
+    /* 顶部导航栏：极简 Google 顶栏 */
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 24px;
+      background: rgba(255, 255, 255, 0.88);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border-subtle);
+      z-index: 20;
     }
-    .msg.user{justify-content:flex-end}
-    /* 关键：只让“消息内容容器”(排除头像)在 flex 中可伸缩，避免被压到“1 个字宽”导致竖排换行 */
-    .msg > div:not(.avatar){
-      flex:1;
-      min-width:0;
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
     }
-    .msg.user > div:not(.avatar){
-      display:flex;
-      flex-direction:column;
-      align-items:flex-end;
+
+    .logo {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: var(--gemini-soft-bg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
     }
-    .avatar{
-      width:34px;height:34px;border-radius:10px;
-      background:#e9eef7;
-      display:flex;align-items:center;justify-content:center;
-      font-size:14px;
-      color:#3b4a5a;
-      flex:0 0 auto;
+
+    .title {
+      display: flex;
+      flex-direction: column;
     }
-    .avatar.bot{background:linear-gradient(135deg, rgba(26,167,255,.18), rgba(91,124,250,.18))}
-    .bubble{
-      max-width:min(720px, 76%);
-      display:inline-block;
-      border-radius:14px;
-      padding:10px 12px;
-      border:1px solid var(--border);
-      background:var(--bubble-bot);
-      position:relative;
-      line-height:1.55;
-      font-size:14px;
-      white-space:pre-wrap;
+
+    .title strong {
+      font-size: 17px;
+      font-weight: 600;
+      letter-spacing: -0.2px;
+      background: linear-gradient(90deg, #1f1f1f 0%, #0b57d0 60%, #9b72cb 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .title span {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    .top-actions {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+
+    /* 流式输出开关芯片 */
+    .stream-label {
+      font-size: 13px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      user-select: none;
+      color: var(--text-secondary);
+      padding: 6px 14px;
+      border-radius: 999px;
+      background: var(--bg-container);
+      transition: background 0.2s ease;
+      font-weight: 500;
+    }
+
+    .stream-label:hover {
+      background: var(--bg-container-hover);
+    }
+
+    .stream-label input[type="checkbox"] {
+      accent-color: var(--google-blue);
+      width: 15px;
+      height: 15px;
+      margin: 0;
+      cursor: pointer;
+    }
+
+    /* API 状态指示器 */
+    .pill {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      background: var(--bg-container);
+      padding: 6px 14px;
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+    }
+
+    .pill::before {
+      content: "";
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #146c2e;
+      box-shadow: 0 0 0 2px rgba(20, 108, 46, 0.15);
+    }
+
+    .btn {
+      border: 1px solid var(--border-subtle);
+      background: var(--bg-surface);
+      color: var(--text-secondary);
+      padding: 7px 16px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      font-family: inherit;
+    }
+
+    .btn:hover {
+      background: var(--bg-container);
+      border-color: #d0d5dd;
+      color: var(--text-primary);
+    }
+
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    /* 聊天主视窗 */
+    .chat {
+      flex: 1;
+      overflow-y: auto;
+      padding: 28px 20px 36px;
+      scroll-behavior: smooth;
+    }
+
+    .chat::-webkit-scrollbar {
+      width: 6px;
+    }
+    .chat::-webkit-scrollbar-thumb {
+      background: #dadce0;
+      border-radius: 999px;
+    }
+
+    .dayline {
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 12px;
+      font-weight: 500;
+      margin: 0 auto 24px;
+      max-width: 840px;
+    }
+
+    .msg {
+      display: flex;
+      gap: 16px;
+      margin: 24px auto;
+      max-width: 840px;
+      align-items: flex-start;
+    }
+
+    .msg.user {
+      justify-content: flex-end;
+    }
+
+    /* 保持原版关键伸缩属性，防止窄屏竖排 */
+    .msg > div:not(.avatar) {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .msg.user > div:not(.avatar) {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+    }
+
+    .avatar {
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      background: var(--google-blue-light);
+      color: var(--google-blue);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      font-weight: 600;
+      flex: 0 0 auto;
+      margin-top: 2px;
+    }
+
+    .avatar.bot {
+      background: var(--gemini-gradient);
+      color: #ffffff;
+      font-size: 0;
+      box-shadow: 0 2px 10px rgba(66, 133, 244, 0.25);
+    }
+
+    /* 用 CSS 为机器人头像绘制星芒图标，无需改动 JS 模板中的文字 */
+    .avatar.bot::after {
+      content: "✦";
+      font-size: 18px;
+      line-height: 1;
+    }
+
+    .bubble {
+      max-width: 100%;
+      display: inline-block;
+      border-radius: 20px;
+      padding: 6px 4px;
+      background: transparent;
+      color: var(--text-primary);
+      position: relative;
+      line-height: 1.7;
+      font-size: 15px;
+      white-space: pre-wrap;
       overflow-wrap: break-word;
     }
-    .msg.user .bubble{
-      background:var(--bubble-user);
-      color:#fff;
-      border-color:transparent;
-    }
-    .meta{
-      font-size:11px;
-      color:var(--muted);
-      margin-top:6px;
-    }
-    .msg.user .meta{color:rgba(255,255,255,.85)}
-    details.progress{
-      margin-top:8px;
-      border:1px dashed rgba(122,134,154,.45);
-      border-radius:12px;
-      padding:8px 10px;
-      background:rgba(122,134,154,.06);
-    }
-    details.progress summary{
-      cursor:pointer;
-      user-select:none;
-      color:var(--muted);
-      font-size:12px;
-    }
-    .progress ul{margin:8px 0 0 18px;padding:0}
-    .progress li{margin:4px 0;font-size:12px;color:#56657a}
 
-    .answer-images{
-      margin-top:10px;
-      display:flex;
-      flex-direction:column;
-      gap:10px;
+    /* 用户气泡：Gemini 浅灰蓝大圆角胶囊 */
+    .msg.user .bubble {
+      background: var(--bg-container);
+      color: var(--text-primary);
+      padding: 12px 20px;
+      border-radius: 24px 24px 6px 24px;
+      max-width: min(660px, 85%);
     }
-    .answer-images img{
+
+    .meta {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 6px;
+      padding: 0 4px;
+    }
+
+    /* 阶段进度折叠栏：Gemini 思考过程卡片风格 */
+    details.progress {
+      margin-top: 10px;
+      margin-bottom: 8px;
+      border: 1px solid var(--border-subtle);
+      border-radius: 16px;
+      padding: 10px 16px;
+      background: #f8fafd;
+      transition: all 0.2s ease;
+    }
+
+    details.progress summary {
+      cursor: pointer;
+      user-select: none;
+      color: var(--text-secondary);
+      font-size: 13px;
+      font-weight: 500;
+      outline: none;
+    }
+
+    .progress ul {
+      margin: 8px 0 0 18px;
+      padding: 0;
+    }
+
+    .progress li {
+      margin: 5px 0;
+      font-size: 12.5px;
+      color: var(--text-secondary);
+    }
+
+    .answer-images {
+      margin-top: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .answer-images img {
       display: block;
       max-width: min(100%, 600px);
       max-height: 600px;
       width: auto;
       height: auto;
-      border-radius:12px;
-      border:1px solid var(--border);
-      box-shadow:0 10px 24px rgba(31,45,61,.10);
-      background:#fff;
-    }
-    .answer-images a{
-      font-size:12px;
-      color:var(--muted);
-      text-decoration:none;
-      word-break:break-all;
+      border-radius: 16px;
+      border: 1px solid var(--border-subtle);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+      background: #fff;
     }
 
-    .typing{
-      display:inline-flex;gap:6px;align-items:center;
-    }
-    .dot{
-      width:7px;height:7px;border-radius:50%;
-      background:#9aa6b2;
-      animation:bounce 1.2s infinite ease-in-out;
-    }
-    .dot:nth-child(2){animation-delay:.15s}
-    .dot:nth-child(3){animation-delay:.3s}
-    @keyframes bounce{
-      0%,80%,100%{transform:translateY(0);opacity:.6}
-      40%{transform:translateY(-5px);opacity:1}
+    .answer-images a {
+      font-size: 12px;
+      color: var(--google-blue);
+      text-decoration: none;
+      word-break: break-all;
     }
 
-    .composer{
-      border-top:1px solid var(--border);
-      padding:12px 14px;
-      display:flex;
-      gap:10px;
-      align-items:flex-end;
-      background:#fff;
+    .answer-images a:hover {
+      text-decoration: underline;
     }
-    textarea{
-      flex:1;
-      resize:none;
-      min-height:44px;
-      max-height:140px;
-      padding:10px 12px;
-      border-radius:12px;
-      border:1px solid var(--border);
-      outline:none;
-      font-size:14px;
-      line-height:1.5;
+
+    /* Gemini 炫彩呼吸加载点 */
+    .typing {
+      display: inline-flex;
+      gap: 6px;
+      align-items: center;
+      padding: 6px 4px;
     }
-    textarea:focus{border-color:rgba(26,167,255,.6); box-shadow:0 0 0 3px rgba(26,167,255,.12)}
-    .send{
-      width:88px;
-      height:44px;
-      border:none;
-      border-radius:12px;
-      cursor:pointer;
-      font-size:14px;
-      color:#fff;
-      background:linear-gradient(135deg, var(--brand), var(--brand2));
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--gemini-gradient);
+      animation: bounce 1.2s infinite ease-in-out;
     }
-    .send:disabled{opacity:.6;cursor:not-allowed}
-    .hint{
-      padding:0 14px 12px;
-      color:var(--muted);
-      font-size:12px;
-      background:#fff;
+
+    .dot:nth-child(2) { animation-delay: 0.15s; }
+    .dot:nth-child(3) { animation-delay: 0.3s; }
+
+    @keyframes bounce {
+      0%, 80%, 100% { transform: scale(0.75); opacity: 0.45; }
+      40% { transform: scale(1.15); opacity: 1; }
     }
-    .kbd{
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-      border:1px solid var(--border);
-      padding:1px 6px;
-      border-radius:6px;
-      background:#f7f9fc;
-      color:#3b4a5a;
+
+    /* 底部胶囊输入区 */
+    .composer-container {
+      width: 100%;
+      max-width: 840px;
+      margin: 0 auto;
+      padding: 0 20px 18px;
+      background: var(--bg-surface);
+    }
+
+    .composer {
+      background: var(--bg-container);
+      border-radius: 32px;
+      padding: 8px 10px 8px 22px;
+      display: flex;
+      gap: 10px;
+      align-items: flex-end;
+      border: 1px solid transparent;
+      transition: background 0.2s, box-shadow 0.2s, border-color 0.2s;
+    }
+
+    .composer:focus-within {
+      background: #ffffff;
+      border-color: #d3e3fd;
+      box-shadow: 0 4px 20px rgba(11, 87, 208, 0.1);
+    }
+
+    textarea {
+      flex: 1;
+      resize: none;
+      min-height: 40px;
+      max-height: 150px;
+      padding: 8px 0;
+      border: none;
+      background: transparent;
+      outline: none;
+      font-size: 15px;
+      line-height: 1.5;
+      color: var(--text-primary);
+      font-family: inherit;
+    }
+
+    textarea::placeholder {
+      color: var(--text-muted);
+    }
+
+    .send {
+      width: 40px;
+      height: 40px;
+      border: none;
+      border-radius: 50%;
+      cursor: pointer;
+      color: #fff;
+      background: var(--google-blue);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: transform 0.15s ease, background 0.2s ease;
+      flex-shrink: 0;
+    }
+
+    .send:hover:not(:disabled) {
+      background: #0842a0;
+      transform: scale(1.04);
+    }
+
+    .send:disabled {
+      background: #e1e5ea;
+      color: #9aa0a6;
+      cursor: not-allowed;
+    }
+
+    .hint {
+      text-align: center;
+      padding-top: 8px;
+      color: var(--text-muted);
+      font-size: 11.5px;
+    }
+
+    .kbd {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      border: 1px solid var(--border-subtle);
+      padding: 1px 6px;
+      border-radius: 6px;
+      background: var(--bg-container);
+      color: var(--text-secondary);
+      font-size: 11px;
+    }
+
+    /* 预设问题 Suggestion Chips */
+    .pill-btn {
+      border: 1px solid var(--border-subtle);
+      background: var(--bg-surface);
+      color: var(--text-secondary);
+      font-size: 13px;
+      padding: 9px 16px;
+      border-radius: 16px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      text-align: left;
+      font-family: inherit;
+    }
+
+    .pill-btn:hover {
+      background: var(--bg-container);
+      border-color: #c2e7ff;
+      color: var(--google-blue);
+      transform: translateY(-1px);
+    }
+
+    /* 五段式金融合规徽章（Material 3 柔和语义色） */
+    .fin-badge {
+      display: inline-flex;
+      align-items: center;
+      font-weight: 600;
+      font-size: 13px;
+      margin-top: 14px;
+      margin-bottom: 6px;
+      padding: 4px 12px;
+      border-radius: 8px;
+    }
+
+    .fin-badge.conclusion {
+      color: #0b57d0;
+      background: #e8f0fe;
+    }
+
+    .fin-badge.details {
+      color: #0f5223;
+      background: #e6f4ea;
+    }
+
+    .fin-badge.risk {
+      color: #b06000;
+      background: #fef7e0;
+    }
+
+    .fin-badge.source {
+      color: #444746;
+      background: #f0f4f9;
+    }
+
+    .fin-badge.disclaimer {
+      color: #b3261e;
+      background: #fce8e6;
+      font-size: 12px;
+    }
+
+    .answer-text {
+      line-height: 1.75;
+      font-size: 15px;
+      color: var(--text-primary);
+    }
+
+    /* 欢迎卡片装饰 */
+    .welcome-box {
+      background: var(--bg-container);
+      border-radius: 20px;
+      padding: 18px 20px;
+      margin-top: 10px;
     }
   </style>
 </head>
@@ -265,14 +533,26 @@
   <div class="app">
     <div class="topbar">
       <div class="brand">
-        <div class="logo"></div>
+        <div class="logo">
+          <!-- Gemini Sparkle SVG -->
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 2C12 7.52285 16.4772 12 22 12C16.4772 12 12 16.4772 12 22C12 16.4772 7.52285 12 2 12C7.52285 12 12 7.52285 12 2Z" fill="url(#gemini-grad)"/>
+            <defs>
+              <linearGradient id="gemini-grad" x1="2" y1="2" x2="22" y2="22" gradientUnits="userSpaceOnUse">
+                <stop stop-color="#4285F4"/>
+                <stop offset="0.5" stop-color="#9B72CB"/>
+                <stop offset="1" stop-color="#D96570"/>
+              </linearGradient>
+            </defs>
+          </svg>
+        </div>
         <div class="title">
-          <strong>掌柜智库知识库</strong>
-          <span id="subTitle">在线 · 可查询知识库与联网信息</span>
+          <strong>金融智脑 · 智能合规问答平台</strong>
+          <span id="subTitle">在线 · 覆盖财报 / 基金 / 银行理财 / 宏观政策 / 投教问答</span>
         </div>
       </div>
       <div class="top-actions">
-        <label style="font-size:12px;display:flex;align-items:center;gap:4px;cursor:pointer;user-select:none;color:var(--muted);margin-right:10px;">
+        <label class="stream-label">
           <input type="checkbox" id="streamToggle" checked> 流式输出
         </label>
         <span class="pill" id="apiPill">API: 未连接</span>
@@ -283,19 +563,39 @@
     <div class="chat" id="chat">
       <div class="dayline">今天</div>
       <div class="msg bot">
-        <div class="avatar bot">掌柜智库</div>
+        <div class="avatar bot">金融智脑</div>
         <div>
-          <div class="bubble">你好，我是掌柜智库知识库客服。你可以直接提问，我会在“阶段进度”里展示处理过程。</div>
-          <div class="meta">提示：可以问“如何使用万用表测量电压？”</div>
+          <div class="bubble">
+            您好！我是<strong>金融智脑</strong>合规问答助手。本系统严格遵守金融合规红线，基于已收录的<strong>上市公司财报、基金产品概要、银行理财风险揭示书、宏观经济公报及投教知识库</strong>，为您提供客观、严谨、可追溯的资料解答。
+            <div class="welcome-box">
+              <div style="font-size:13px;color:var(--text-secondary);margin-bottom:12px;font-weight:500;">✨ 常见业务场景快速体验（点击直接填入输入框）：</div>
+              <div style="display:flex;flex-wrap:wrap;gap:8px;">
+                <button class="pill-btn" onclick="fillInput('贵州茅台酒股份有限公司2026年第一季度营业收入和净利润分别是多少？')">📊 贵州茅台2026一季报核心财务数据</button>
+                <button class="pill-btn" onclick="fillInput('华夏国证自由现金流ETF发起式联接基金的风险等级是什么？投资范围包含哪些？')">📈 华夏自由现金流ETF联接基金要素</button>
+                <button class="pill-btn" onclick="fillInput('中国建设银行人民币理财产品是否保本？主要面临哪些风险？')">🛡️ 建设银行理财产品保本问答与风险揭示</button>
+                <button class="pill-btn" onclick="fillInput('什么是基金最大回撤？基金净值和累计净值有什么区别？')">📚 什么是基金最大回撤与净值？</button>
+                <button class="pill-btn" onclick="fillInput('私募基金合格投资者的认定资产门槛和最低起投金额是多少？')">📋 私募基金合格投资者认定门槛</button>
+                <button class="pill-btn" onclick="fillInput('你强烈建议我现在全仓买入招商银行股票吗？')">⚖️ 合规测试：能否提供个股买入建议？</button>
+              </div>
+            </div>
+          </div>
+          <div class="meta">声明：客观严谨 · 零幻觉 · 五段式结构输出 · 绝无投资推荐导向</div>
         </div>
       </div>
     </div>
 
-    <div class="composer">
-      <textarea id="input" placeholder="请输入问题（Enter 发送，Shift+Enter 换行）"></textarea>
-      <button class="send" id="send">发送</button>
+    <div class="composer-container">
+      <div class="composer">
+        <textarea id="input" rows="1" placeholder="向金融智脑提问：输入金融知识、财报数据或理财条款问题..."></textarea>
+        <button class="send" id="send" title="发送">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="22" y1="2" x2="11" y2="13"></line>
+            <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+          </svg>
+        </button>
+      </div>
+      <div class="hint">金融智脑严格遵循合规准则，不构成任何投资建议 · 快捷键：<span class="kbd">Enter</span> 发送，<span class="kbd">Shift</span>+<span class="kbd">Enter</span> 换行</div>
     </div>
-    <div class="hint">快捷键：<span class="kbd">Enter</span> 发送，<span class="kbd">Shift</span>+<span class="kbd">Enter</span> 换行</div>
   </div>
 
   <script>
@@ -307,6 +607,12 @@
     const apiPill = document.getElementById('apiPill');
     const btnClear = document.getElementById('btnClear');
     const streamToggle = document.getElementById('streamToggle');
+
+    // 输入框自适应高度
+    inputEl.addEventListener('input', () => {
+      inputEl.style.height = 'auto';
+      inputEl.style.height = Math.min(inputEl.scrollHeight, 150) + 'px';
+    });
 
     // Session ID Logic
     let sessionId = localStorage.getItem('kb_session_id');
@@ -337,15 +643,38 @@
         .replaceAll("'","&#039;");
     }
 
+    function fillInput(queryText){
+      if(!queryText) return;
+      const el = document.getElementById('input');
+      if(el){
+        el.value = queryText;
+        el.style.height = 'auto';
+        el.style.height = Math.min(el.scrollHeight, 150) + 'px';
+        el.focus();
+      }
+    }
+
+    function formatFinancialAnswerHtml(rawText){
+      if(!rawText) return '';
+      let html = escapeHtml(rawText);
+
+      // 结构化格式化五段式标题徽章
+      html = html.replace(/【简要结论】/g, '<div class="fin-badge conclusion">🎯 【简要结论】</div>');
+      html = html.replace(/【详细解析】/g, '<div class="fin-badge details">📊 【详细解析】</div>');
+      html = html.replace(/【风险提示(?:\/注意事项)?】|【风险提示】|【注意事项】/g, '<div class="fin-badge risk">⚠️ 【风险提示 / 注意事项】</div>');
+      html = html.replace(/【引用来源】/g, '<div class="fin-badge source">📌 【引用来源】</div>');
+      html = html.replace(/【合规免责声明】/g, '<div class="fin-badge disclaimer">⚖️ 【合规免责声明】</div>');
+
+      // 换行与段落
+      html = html.replace(/\n\n/g, '<br/><br/>').replace(/\n/g, '<br/>');
+      return html;
+    }
+
     function isImageUrl(url){
-      // 增加宽松度，有些 url 可能后面跟了奇怪的参数
-      // 只要包含 .jpg .png 等扩展名，且后面是 ? # 或 结束，或者被某些标点截断前
-      // 简单判断：路径部分以图片后缀结尾
       try {
         const u = new URL(url);
         return /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(u.pathname);
       } catch (e) {
-        // 如果 new URL 失败（比如相对路径或非法字符），退回正则匹配
         return /\.(png|jpe?g|gif|webp|bmp|svg)(\?|#|$)/i.test(url || '');
       }
     }
@@ -353,7 +682,6 @@
     function normalizeUrl(rawUrl){
       const s = String(rawUrl || '').trim();
       if(!s) return '';
-      // 尽量保留原始 URL，但把空格编码，避免 img src 失败
       return s.replace(/\s/g, '%20');
     }
 
@@ -372,19 +700,15 @@
 
     function extractUrlsLoose(text){
       const s = String(text || '');
-      // 简单正则提取：匹配 http/https 开头，直到遇到空白字符
-      // [^\s] 包含中文、特殊符号等，直到遇到换行或空格
       const regex = /(https?:\/\/[^\s]+)/g;
       const matches = s.match(regex) || [];
       const urls = [];
       
-      // 去除首尾标点
       const trimTailPunct = (u) => String(u || '').replace(/[)\]}'">，。,;；\]】）＞]+$/g, '');
       const trimHeadPunct = (u) => String(u || '').replace(/^[<([{'"]+|^[＜（【\[]+/g, '');
 
       for(const m of matches){
         let u = trimHeadPunct(trimTailPunct(m));
-        // 简单清洗可能混入的结尾
         if(u) urls.push(u);
       }
       return dedupeKeepOrder(urls);
@@ -397,7 +721,6 @@
 
     function findLastImageMarkerIndex(raw){
       const s = String(raw || '');
-      // 支持多种写法：【图片】、【 图片 】、[图片]、[ 图片 ]
       const re = /【\s*图片\s*】|\[\s*图片\s*\]/g;
       let m;
       let lastIdx = -1;
@@ -418,13 +741,11 @@
       const after = raw.slice(idx + len).trim();
       const urls = [];
 
-      // 优先按“每行一个 URL”的方式解析，允许 URL 中包含空格
       const lines = after.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
       for(const line of lines){
         if(line.startsWith('http://') || line.startsWith('https://')){
           urls.push(line);
         }else{
-          // 兼容同一行包含多个 URL 的情况
           const matches = extractUrlsLoose(line);
           for(const u of matches){
             urls.push(u);
@@ -432,7 +753,6 @@
         }
       }
 
-      // 去重保序 + 过滤图片链接
       const seen = new Set();
       const images = [];
       for(const u of urls){
@@ -447,7 +767,6 @@
 
     function shouldShowImagesByAnswer(answerText){
       const t = String(answerText || '');
-      // 常见“需要看图/见图/如下图”的表述
       const keywords = [
         '如图', '如下图', '见图', '见下图', '下图', '上图',
         '图片', '示意图', '结构图', '外观', '接线图', '电路图', '原理图', '安装图', '尺寸图', '截图'
@@ -461,16 +780,8 @@
         ? candidateImageUrls.map(normalizeUrl).filter(isImageUrl)
         : [];
       const hasBlockImages = imagesFromBlock && imagesFromBlock.length > 0;
-      
-      // 使用宽松提取
       const looseImages = extractUrlsLoose(answerText).map(normalizeUrl).filter(isImageUrl);
       
-      // 只要后端给了候选图片，就展示（避免答案没写“如图”但用户仍需要看图）
-      // 或者从文本里提取到了图片 URL
-      const shouldShow = hasBlockImages || (candidates.length > 0) || (looseImages.length > 0);
-      
-      // 优先级：Block 显式标记 > 后端候选 > 文本宽松提取
-      // 注意：这里做个并集可能更好，防止漏掉
       const allImages = new Set([
           ...(hasBlockImages ? imagesFromBlock : []),
           ...candidates,
@@ -483,7 +794,7 @@
       if((text || '').trim().length > 0){
         const textEl = document.createElement('div');
         textEl.className = 'answer-text';
-        textEl.textContent = text;
+        textEl.innerHTML = formatFinancialAnswerHtml(text);
         containerEl.appendChild(textEl);
       }else{
         const textEl = document.createElement('div');
@@ -550,7 +861,7 @@
       const id = 'bot-his-' + Math.random().toString(36).slice(2);
       const html = `
         <div class="msg bot" id="${id}">
-          <div class="avatar bot">掌柜智库</div>
+          <div class="avatar bot">金融智脑</div>
           <div>
             <div class="bubble"><div class="answer"></div></div>
             <div class="meta">${formatTime(ts)}</div>
@@ -570,7 +881,7 @@
       const id = 'bot-' + Math.random().toString(36).slice(2);
       const html = `
         <div class="msg bot" id="${id}">
-          <div class="avatar bot">掌柜智库</div>
+          <div class="avatar bot">金融智脑</div>
           <div style="min-width: 180px;">
             <div class="bubble">
               <span class="typing"><span class="dot"></span><span class="dot"></span><span class="dot"></span></span>
@@ -644,7 +955,7 @@
       const progressEl = progress ? progress : null;
       if(progressEl) {
         progressEl.remove();
-        progressEl.removeAttribute('open'); // 完成后自动收起
+        progressEl.removeAttribute('open');
       }
       bubble.textContent = '';
       const answerEl = document.createElement('div');
@@ -671,7 +982,6 @@
         const data = await res.json();
         const items = Array.isArray(data.items) ? data.items : [];
         if(items.length === 0) return;
-        // 保留首条欢迎消息，其余先清空再渲染历史
         const nodes = Array.from(chatEl.querySelectorAll('.msg'));
         for(let i=1;i<nodes.length;i++) nodes[i].remove();
         items.reverse()
@@ -723,9 +1033,7 @@
             clearInterval(interval);
             sendBtn.disabled = false;
           }
-        }catch(e){
-          // 轮询错误不立刻终止，让用户稍后重试
-        }
+        }catch(e){}
       }, 1200);
     }
 
@@ -734,6 +1042,7 @@
       const text = (inputEl.value || '').trim();
       if(!text) return;
       inputEl.value = '';
+      inputEl.style.height = 'auto';
       addUserMsg(text);
       const botMsgEl = addBotMsgSkeleton();
       sendBtn.disabled = true;
@@ -744,20 +1053,16 @@
         const data = await submitQuery(text);
         console.log('[perf] B submitQuery end', performance.now(), data);
         
-        // 渲染初始状态
         renderProgress(botMsgEl, [], [], 'pending');
 
         if (!isStream) {
-          // 非流式：直接拿到结果
-          // data: { session_id, answer, done_list, error, message }
           renderProgress(botMsgEl, data.done_list || [], [], 'completed');
           finalizeBotAnswer(botMsgEl, data.answer, data.error, data.image_urls || []);
           sendBtn.disabled = false;
           return;
         }
 
-        // 流式：SSE
-        const { session_id } = data; // 此时 backend 返回 session_id
+        const { session_id } = data;
         
         const bubble = botMsgEl.querySelector('.bubble');
         let answerEl = bubble.querySelector('.answer');
@@ -775,11 +1080,9 @@
           try{
             const d = JSON.parse(e.data || '{}');
             renderProgress(botMsgEl, d.done_list, d.running_list, d.status);
-            // 当进度状态已完成时，提前结束“...”等待态
             if(d && d.status === 'completed'){
               const typing = botMsgEl.querySelector('.typing');
               if(typing) typing.remove();
-              // 防止后端未发送 final 导致按钮一直禁用
               sendBtn.disabled = false;
             }
           }catch(_){}
@@ -791,7 +1094,6 @@
             const delta = d.delta || '';
             if(delta){
               rawAnswerText += delta;
-              // 即使后端未发送 final，也尽可能在流式过程中渲染图片
               renderAnswerWithImages(answerEl, rawAnswerText, []);
               scrollToBottom();
             }
@@ -801,13 +1103,11 @@
         es.addEventListener('final', (e) => {
           const typing = botMsgEl.querySelector('.typing');
           if(typing) typing.remove();
-          // 收起进度条
           const progress = botMsgEl.querySelector('details.progress');
           if(progress) progress.removeAttribute('open');
           
           try{
             const d = JSON.parse(e.data || '{}');
-            // 流式 delta 可能不包含“【图片】/图片列表”，最终包的 d.answer 才是完整答案；优先使用 d.answer
             const finalText = (d && typeof d.answer === 'string' && d.answer.trim().length > 0) ? d.answer : (rawAnswerText || answerEl.textContent || '');
             renderAnswerWithImages(answerEl, finalText, d.image_urls || []);
           }catch(_){}
@@ -816,7 +1116,6 @@
         });
 
         es.addEventListener('final_answer', (e) => {
-           // 响应用户的 final_answer 信号，确保图片渲染
           const typing = botMsgEl.querySelector('.typing');
           if(typing) typing.remove();
           const progress = botMsgEl.querySelector('details.progress');
@@ -834,7 +1133,6 @@
         es.addEventListener('error', (e) => {
           const typing = botMsgEl.querySelector('.typing');
           if(typing) typing.remove();
-          // 收起进度条
           const progress = botMsgEl.querySelector('details.progress');
           if(progress) progress.removeAttribute('open');
 
@@ -880,7 +1178,6 @@
         alert('服务端清空失败，仅清空本地显示');
       }
 
-      // 清空除首条欢迎消息外的内容
       const nodes = Array.from(chatEl.querySelectorAll('.msg'));
       for(let i=1;i<nodes.length;i++) nodes[i].remove();
       scrollToBottom();
@@ -893,5 +1190,3 @@
   </script>
 </body>
 </html>
-
-

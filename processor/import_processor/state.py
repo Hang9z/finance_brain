@@ -13,15 +13,14 @@ class ImportGraphState(TypedDict):
     # --- 流程控制标记 ---
     is_md_read_enabled: bool
     is_pdf_read_enabled: bool
+    is_doc_read_enabled: bool
 
     # --- 路径相关 ---
-    local_dir: str  # 文件夹地址  (pdf -> md  -> 输出的文件夹地址)
-    local_file_path: str  # 传入文件地址 不确定md pdf
+    local_dir: str  # 文件夹地址  (pdf/doc -> md  -> 输出的文件夹地址)
+    local_file_path: str  # 传入文件地址 (pdf/doc/docx/md)
     file_title: str
-    # 把local_file_path分流成两条路，如果不是md文件，pdf.path转成md后让md_path指向，
-    # 如果本来就是.md文件，后续不用进行二次判断，md_path指向的一定是md
-    # 没有分流：以后都要判断local_file_path的后缀是什么
     pdf_path: str
+    doc_path: str
     md_path: str
 
     # --- 内容数据 ---
@@ -37,9 +36,11 @@ graph_default_state: ImportGraphState = {
     "task_id": "",
     "is_pdf_read_enabled": False,
     "is_md_read_enabled": False,
+    "is_doc_read_enabled": False,
     "local_dir": "",
     "local_file_path": "",
     "pdf_path": "",
+    "doc_path": "",
     "md_path": "",
     "file_title": "",
     "md_content": "",

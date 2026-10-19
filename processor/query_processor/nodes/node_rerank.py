@@ -88,6 +88,9 @@ def step_2_merge_rrf_and_web(rrf_chunks: list, web_search_docs: list) -> List[Di
         text = chunk.get("content")
         merged_list.append({
             "chunk_id": str(chunk.get("chunk_id", "")),
+            "file_title": chunk.get("file_title", ""),
+            "item_name": chunk.get("item_name", ""),
+            "parent_title": chunk.get("parent_title", ""),
             "title": chunk.get("title", ""),
             "text": text,
             "score": 0.0,

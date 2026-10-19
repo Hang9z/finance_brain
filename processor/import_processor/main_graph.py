@@ -17,7 +17,8 @@ from processor.import_processor.state import ImportGraphState, create_default_st
 
 # 引入业务节点
 from processor.import_processor.nodes.node_entry import node_entry # 入口节点，判断文件类型
-from processor.import_processor.nodes.node_pdf_to_md import node_pdf_to_md # 格式转化
+from processor.import_processor.nodes.node_pdf_to_md import node_pdf_to_md # PDF 格式转化
+from processor.import_processor.nodes.node_doc_to_md import node_doc_to_md # Word DOC/DOCX 格式转化
 from processor.import_processor.nodes.node_md_img import node_md_img # 图片处理
 from processor.import_processor.nodes.node_document_split import node_document_split # 文件切分
 from processor.import_processor.nodes.node_item_name_recognition import node_item_name_recognition # 内容摘要
@@ -31,10 +32,11 @@ load_dotenv()
 # 每个节点都要维护这个状态的副本,返回字典增量更新状态
 workflow = StateGraph(ImportGraphState)
 
-# 2. 挂载 7 个核心流水线节点
+# 2. 挂载流水线节点
 # 节点名称是每个节点在图中的唯一标识,用于后续边的添加
 workflow.add_node("node_entry", node_entry)
 workflow.add_node("node_pdf_to_md", node_pdf_to_md)
+workflow.add_node("node_doc_to_md", node_doc_to_md)
 workflow.add_node("node_md_img", node_md_img)
 workflow.add_node("node_document_split", node_document_split)
 workflow.add_node("node_item_name_recognition", node_item_name_recognition)
@@ -49,11 +51,14 @@ def route_after_entry(state: ImportGraphState) -> str:
     """
     根据 node_entry 探测出的文件类型标记，动态分流后续路径：
     - 若为 Markdown 文件：跳过格式转换，直接处理图片与内容
-    - 若为 PDF 手册：先流转到 MinerU 节点进行解析与提取
+    - 若为 Word 文档 (.doc/.docx)：流转至本地自动化转换节点
+    - 若为 PDF 文档：流转到 MinerU 节点进行解析与提取
     - 其它无效情况：安全退出流程
     """
     if state.get("is_md_read_enabled"):
         return "node_md_img"
+    elif state.get("is_doc_read_enabled"):
+        return "node_doc_to_md"
     elif state.get("is_pdf_read_enabled"):
         return "node_pdf_to_md"
     else:
@@ -68,6 +73,7 @@ workflow.add_conditional_edges(
     # 字典映射,节点返回值实际对应哪个节点
     {
         "node_md_img": "node_md_img",
+        "node_doc_to_md": "node_doc_to_md",
         "node_pdf_to_md": "node_pdf_to_md",
         END: END
     }
@@ -75,6 +81,7 @@ workflow.add_conditional_edges(
 
 # 6. 静态边: 顺序执行
 workflow.add_edge("node_pdf_to_md", "node_md_img")
+workflow.add_edge("node_doc_to_md", "node_md_img")
 workflow.add_edge("node_md_img", "node_document_split")
 workflow.add_edge("node_document_split", "node_item_name_recognition")
 workflow.add_edge("node_item_name_recognition", "node_bge_embedding")
