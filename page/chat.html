@@ -1,38 +1,39 @@
-<!-- 查询演示页面，用于体验普通问答与流式响应（Gemini 风格重制版） -->
+<!-- 查询演示页面，用于体验普通问答与流式响应（Google Gemini 原生极简版） -->
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1.0" />
-  <title>金融智脑 · 智能合规问答平台</title>
+  <title>金融智脑</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Noto+Sans+SC:wght@400;500;600&display=swap" rel="stylesheet">
   <style>
     :root {
       --bg-surface: #ffffff;
+      --bg-sidebar: #f0f4f9;
       --bg-container: #f0f4f9;
       --bg-container-hover: #e1e5ea;
+      --bg-active-pill: #d3e3fd;
       --text-primary: #1f1f1f;
       --text-secondary: #444746;
       --text-muted: #747775;
       --google-blue: #0b57d0;
-      --google-blue-light: #d3e3fd;
-      --border-subtle: #e3e3e3;
-      --gemini-gradient: linear-gradient(135deg, #4285f4 0%, #9b72cb 50%, #d96570 100%);
-      --gemini-soft-bg: linear-gradient(135deg, rgba(66,133,244,0.08) 0%, rgba(155,114,203,0.08) 50%, rgba(217,101,112,0.08) 100%);
+      --border-hairline: #e3e3e3;
+      --font-sans: 'Inter', 'Noto Sans SC', -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
     }
 
     * { box-sizing: border-box; }
 
     body {
       margin: 0;
-      font-family: 'Inter', 'Noto Sans SC', "Google Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-family: var(--font-sans);
       background-color: var(--bg-surface);
       color: var(--text-primary);
       height: 100vh;
       overflow: hidden;
       -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
     }
 
     .app-layout {
@@ -43,6 +44,233 @@
       background: var(--bg-surface);
     }
 
+    /* ==========================================
+       左侧抽屉：純正 Gemini 无边框浅灰蓝底色
+       ========================================== */
+    .sidebar {
+      width: 268px;
+      height: 100%;
+      background: var(--bg-sidebar);
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+      transition: margin-left 0.28s cubic-bezier(0.2, 0, 0, 1);
+      z-index: 30;
+      user-select: none;
+      padding: 12px 12px 14px;
+    }
+
+    .sidebar.collapsed {
+      margin-left: -268px;
+    }
+
+    .sidebar-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 44px;
+      padding: 0 4px;
+      margin-bottom: 12px;
+    }
+
+    .btn-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      border: none;
+      background: transparent;
+      color: var(--text-secondary);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: background-color 0.15s ease;
+      flex-shrink: 0;
+    }
+
+    .btn-icon:hover {
+      background-color: rgba(68, 71, 70, 0.08);
+      color: var(--text-primary);
+    }
+
+    .sidebar-action-wrap {
+      padding: 0 4px 16px;
+    }
+
+    /* Gemini 标志性的胶囊新建按钮 */
+    .btn-new-chat {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      height: 40px;
+      padding: 0 16px 0 14px;
+      border-radius: 999px;
+      background: #dde3ea;
+      border: none;
+      color: var(--text-secondary);
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background-color 0.15s ease, color 0.15s ease;
+      font-family: inherit;
+    }
+
+    .btn-new-chat:hover {
+      background: #d0d7de;
+      color: var(--text-primary);
+    }
+
+    .sidebar-section-label {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      padding: 0 12px 8px;
+    }
+
+    .session-list {
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .session-list::-webkit-scrollbar {
+      width: 4px;
+    }
+    .session-list::-webkit-scrollbar-thumb {
+      background: rgba(0, 0, 0, 0.12);
+      border-radius: 999px;
+    }
+
+    /* 单行胶囊式历史记录条目 */
+    .session-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      height: 36px;
+      padding: 0 12px;
+      border-radius: 999px;
+      cursor: pointer;
+      transition: background-color 0.12s ease;
+      color: var(--text-secondary);
+      position: relative;
+    }
+
+    .session-item:hover {
+      background: rgba(68, 71, 70, 0.08);
+      color: var(--text-primary);
+    }
+
+    .session-item.active {
+      background: var(--bg-active-pill);
+      color: #041e49;
+      font-weight: 500;
+    }
+
+    .session-icon {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      color: inherit;
+      opacity: 0.8;
+    }
+
+    .session-info {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+    }
+
+    .session-title {
+      font-size: 13.5px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      line-height: 1;
+      color: inherit;
+    }
+
+    .session-time {
+      font-size: 11px;
+      color: var(--text-muted);
+      flex-shrink: 0;
+    }
+
+    .session-item:hover .session-time {
+      display: none;
+    }
+
+    .session-actions {
+      display: none;
+      align-items: center;
+      gap: 2px;
+    }
+
+    .session-item:hover .session-actions {
+      display: flex;
+    }
+
+    .btn-session-action {
+      background: transparent;
+      border: none;
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: var(--text-secondary);
+      padding: 0;
+    }
+
+    .btn-session-action:hover {
+      background: rgba(0, 0, 0, 0.08);
+      color: var(--text-primary);
+    }
+
+    .session-empty {
+      padding: 32px 12px;
+      color: var(--text-muted);
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    .sidebar-footer {
+      padding: 12px 12px 0;
+      margin-top: 8px;
+      border-top: 1px solid rgba(0, 0, 0, 0.06);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .btn-clear-all-sessions {
+      background: transparent;
+      border: none;
+      color: var(--text-secondary);
+      font-size: 12px;
+      cursor: pointer;
+      padding: 4px 8px;
+      border-radius: 6px;
+      font-family: inherit;
+    }
+
+    .btn-clear-all-sessions:hover {
+      background: rgba(68, 71, 70, 0.08);
+      color: #b3261e;
+    }
+
+    /* ==========================================
+       主工作区与无边框顶栏
+       ========================================== */
     .app {
       flex: 1;
       height: 100%;
@@ -53,299 +281,59 @@
       position: relative;
     }
 
-    /* 左侧历史会话抽屉 */
-    .sidebar {
-      width: 270px;
-      height: 100%;
-      background: #f8fafc;
-      border-right: 1px solid var(--border-subtle);
-      display: flex;
-      flex-direction: column;
-      flex-shrink: 0;
-      transition: margin-left 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-      z-index: 30;
-      user-select: none;
-    }
-
-    .sidebar.collapsed {
-      margin-left: -270px;
-    }
-
-    .sidebar-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 14px 16px 10px;
-    }
-
-    .sidebar-title {
-      font-size: 14px;
-      font-weight: 600;
-      color: var(--text-primary);
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-
-    .btn-collapse-sidebar {
-      background: transparent;
-      border: none;
-      width: 28px;
-      height: 28px;
-      border-radius: 6px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      color: var(--text-secondary);
-      transition: background 0.15s ease;
-      font-size: 16px;
-    }
-
-    .btn-collapse-sidebar:hover {
-      background: var(--bg-container-hover);
-      color: var(--text-primary);
-    }
-
-    .sidebar-action-wrap {
-      padding: 0 12px 10px;
-    }
-
-    .btn-new-chat {
-      width: 100%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      padding: 9px 16px;
-      border-radius: 12px;
-      background: var(--google-blue-light);
-      border: 1px solid rgba(11, 87, 208, 0.2);
-      color: var(--google-blue);
-      font-size: 13.5px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.2s ease;
-      font-family: inherit;
-    }
-
-    .btn-new-chat:hover {
-      background: #c3d9fb;
-      box-shadow: 0 2px 6px rgba(11, 87, 208, 0.15);
-    }
-
-    .session-list {
-      flex: 1;
-      overflow-y: auto;
-      padding: 4px 10px;
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-    }
-
-    .session-list::-webkit-scrollbar {
-      width: 4px;
-    }
-    .session-list::-webkit-scrollbar-thumb {
-      background: #dadce0;
-      border-radius: 999px;
-    }
-
-    .session-item {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 8px 10px;
-      border-radius: 8px;
-      cursor: pointer;
-      transition: all 0.15s ease;
-      border: 1px solid transparent;
-      color: var(--text-secondary);
-    }
-
-    .session-item:hover {
-      background: var(--bg-container);
-      color: var(--text-primary);
-    }
-
-    .session-item.active {
-      background: #e8f0fe;
-      border-color: rgba(11, 87, 208, 0.25);
-      color: var(--google-blue);
-    }
-
-    .session-icon {
-      font-size: 14px;
-      flex-shrink: 0;
-      opacity: 0.75;
-    }
-
-    .session-info {
-      flex: 1;
-      min-width: 0;
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-    }
-
-    .session-title {
-      font-size: 13px;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      line-height: 1.35;
-      color: inherit;
-    }
-
-    .session-time {
-      font-size: 11px;
-      color: var(--text-muted);
-    }
-
-    .session-actions {
-      display: flex;
-      align-items: center;
-      gap: 2px;
-      opacity: 0;
-      transition: opacity 0.15s ease;
-    }
-
-    .session-item:hover .session-actions,
-    .session-item.active .session-actions {
-      opacity: 1;
-    }
-
-    .btn-session-action {
-      background: transparent;
-      border: none;
-      width: 22px;
-      height: 22px;
-      border-radius: 4px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      font-size: 12px;
-      color: var(--text-secondary);
-      transition: background 0.15s ease;
-      padding: 0;
-    }
-
-    .btn-session-action:hover {
-      background: rgba(0, 0, 0, 0.08);
-      color: var(--text-primary);
-    }
-
-    .session-empty {
-      text-align: center;
-      padding: 36px 12px;
-      color: var(--text-muted);
-      font-size: 13px;
-    }
-
-    .sidebar-footer {
-      padding: 10px 14px;
-      border-top: 1px solid var(--border-subtle);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      font-size: 11.5px;
-      color: var(--text-muted);
-    }
-
-    .btn-clear-all-sessions {
-      background: transparent;
-      border: none;
-      color: var(--text-muted);
-      font-size: 11px;
-      cursor: pointer;
-      padding: 2px 6px;
-      border-radius: 4px;
-      transition: color 0.15s ease;
-    }
-
-    .btn-clear-all-sessions:hover {
-      background: var(--bg-container-hover);
-      color: #b3261e;
-    }
-
-    .btn-toggle-sidebar {
-      background: transparent;
-      border: 1px solid var(--border-subtle);
-      width: 34px;
-      height: 34px;
-      border-radius: 8px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      color: var(--text-secondary);
-      transition: all 0.15s ease;
-      margin-right: 4px;
-      flex-shrink: 0;
-    }
-
-    .btn-toggle-sidebar:hover {
-      background: var(--bg-container);
-      color: var(--text-primary);
-    }
-
-    /* 顶部导航栏：极简 Google 顶栏 */
     .topbar {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 12px 24px;
-      background: rgba(255, 255, 255, 0.88);
-      backdrop-filter: blur(12px);
-      border-bottom: 1px solid var(--border-subtle);
+      height: 60px;
+      padding: 0 20px;
+      background: var(--bg-surface);
       z-index: 20;
+      flex-shrink: 0;
     }
 
     .brand {
       display: flex;
       align-items: center;
-      gap: 12px;
+      gap: 8px;
+      min-width: 0;
     }
 
-    .logo {
-      width: 36px;
-      height: 36px;
-      border-radius: 50%;
-      background: var(--gemini-soft-bg);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-shrink: 0;
+    .sidebar:not(.collapsed) ~ .app .btn-toggle-sidebar {
+      display: none;
     }
 
     .title {
       display: flex;
-      flex-direction: column;
+      align-items: baseline;
+      gap: 10px;
+      min-width: 0;
+      padding-left: 4px;
     }
 
     .title strong {
-      font-size: 17px;
-      font-weight: 600;
+      font-size: 18px;
+      font-weight: 500;
+      color: var(--text-secondary);
       letter-spacing: -0.2px;
-      background: linear-gradient(90deg, #1f1f1f 0%, #0b57d0 60%, #9b72cb 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
+      white-space: nowrap;
     }
 
     .title span {
       font-size: 12px;
       color: var(--text-muted);
-      margin-top: 2px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
     .top-actions {
       display: flex;
-      gap: 12px;
+      gap: 8px;
       align-items: center;
+      flex-shrink: 0;
     }
 
-    /* 流式输出开关芯片 */
     .stream-label {
       font-size: 13px;
       display: inline-flex;
@@ -354,77 +342,67 @@
       cursor: pointer;
       user-select: none;
       color: var(--text-secondary);
-      padding: 6px 14px;
-      border-radius: 999px;
-      background: var(--bg-container);
-      transition: background 0.2s ease;
-      font-weight: 500;
+      padding: 6px 12px;
+      border-radius: 8px;
+      transition: background 0.15s ease;
     }
 
     .stream-label:hover {
-      background: var(--bg-container-hover);
+      background: var(--bg-container);
     }
 
     .stream-label input[type="checkbox"] {
       accent-color: var(--google-blue);
-      width: 15px;
-      height: 15px;
+      width: 14px;
+      height: 14px;
       margin: 0;
       cursor: pointer;
     }
 
-    /* API 状态指示器 */
     .pill {
       font-size: 12px;
-      font-weight: 500;
       color: var(--text-secondary);
       background: var(--bg-container);
-      padding: 6px 14px;
+      padding: 5px 12px;
       border-radius: 999px;
       display: inline-flex;
       align-items: center;
-      gap: 7px;
+      gap: 6px;
     }
 
     .pill::before {
       content: "";
-      width: 8px;
-      height: 8px;
+      width: 6px;
+      height: 6px;
       border-radius: 50%;
       background: #146c2e;
-      box-shadow: 0 0 0 2px rgba(20, 108, 46, 0.15);
     }
 
     .btn {
-      border: 1px solid var(--border-subtle);
-      background: var(--bg-surface);
+      border: 1px solid var(--border-hairline);
+      background: transparent;
       color: var(--text-secondary);
-      padding: 7px 16px;
-      border-radius: 999px;
+      padding: 6px 14px;
+      border-radius: 8px;
       font-size: 13px;
       font-weight: 500;
       cursor: pointer;
-      transition: all 0.2s ease;
+      transition: background 0.15s ease;
       font-family: inherit;
     }
 
     .btn:hover {
       background: var(--bg-container);
-      border-color: #d0d5dd;
       color: var(--text-primary);
     }
 
-    .btn:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
-
-
-    /* 聊天主视窗 */
+    /* ==========================================
+       对话流区域
+       ========================================== */
     .chat {
       flex: 1;
       overflow-y: auto;
-      padding: 28px 20px 36px;
+      padding: 16px 24px 32px;
       scroll-behavior: smooth;
     }
 
@@ -432,24 +410,19 @@
       width: 6px;
     }
     .chat::-webkit-scrollbar-thumb {
-      background: #dadce0;
+      background: #e1e5ea;
       border-radius: 999px;
     }
 
     .dayline {
-      text-align: center;
-      color: var(--text-muted);
-      font-size: 12px;
-      font-weight: 500;
-      margin: 0 auto 24px;
-      max-width: 840px;
+      display: none;
     }
 
     .msg {
       display: flex;
-      gap: 16px;
-      margin: 24px auto;
-      max-width: 840px;
+      gap: 18px;
+      margin: 28px auto;
+      max-width: 780px;
       align-items: flex-start;
     }
 
@@ -457,7 +430,6 @@
       justify-content: flex-end;
     }
 
-    /* 保持原版关键伸缩属性，防止窄屏竖排 */
     .msg > div:not(.avatar) {
       flex: 1;
       min-width: 0;
@@ -469,74 +441,128 @@
       align-items: flex-end;
     }
 
-    .avatar {
-      width: 34px;
-      height: 34px;
-      border-radius: 50%;
-      background: var(--google-blue-light);
-      color: var(--google-blue);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 13px;
-      font-weight: 600;
-      flex: 0 0 auto;
-      margin-top: 2px;
+    /* 隐藏用户的“我”字头像，与原版 Gemini 保持一致 */
+    .msg.user .avatar {
+      display: none;
     }
 
+    /* 机器人头像：纯正 Gemini 四角星图标，无底色圆圈 */
     .avatar.bot {
-      background: var(--gemini-gradient);
-      color: #ffffff;
+      width: 28px;
+      height: 28px;
+      border-radius: 0;
+      background: transparent;
       font-size: 0;
-      box-shadow: 0 2px 10px rgba(66, 133, 244, 0.25);
-    }
-
-    /* 用 CSS 为机器人头像绘制星芒图标，无需改动 JS 模板中的文字 */
-    .avatar.bot::after {
-      content: "✦";
-      font-size: 18px;
-      line-height: 1;
+      flex: 0 0 28px;
+      margin-top: 4px;
+      background-image: url("data:image/svg+xml,%3Csvg width='28' height='28' viewBox='0 0 28 28' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M14 28C14 21.75 9.52 14 0 14C9.52 14 14 6.25 14 0C14 6.25 18.48 14 28 14C18.48 14 14 21.75 14 28Z' fill='url(%23g)'/%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='28' y2='28' gradientUnits='userSpaceOnUse'%3E%3Cstop stop-color='%234285F4'/%3E%3Cstop offset='0.5' stop-color='%239B72CB'/%3E%3Cstop offset='1' stop-color='%23D96570'/%3E%3C/linearGradient%3E%3C/defs%3E%3C/svg%3E");
+      background-size: 22px 22px;
+      background-repeat: no-repeat;
+      background-position: center;
     }
 
     .bubble {
       max-width: 100%;
-      display: inline-block;
-      border-radius: 20px;
-      padding: 6px 4px;
+      display: block;
+      padding: 2px 0;
       background: transparent;
       color: var(--text-primary);
       position: relative;
-      line-height: 1.7;
-      font-size: 15px;
+      line-height: 1.75;
+      font-size: 15.5px;
       white-space: pre-wrap;
       overflow-wrap: break-word;
     }
 
-    /* 用户气泡：Gemini 浅灰蓝大圆角胶囊 */
+    /* 用户消息胶囊：Gemini 标准浅灰蓝圆角块 */
     .msg.user .bubble {
+      display: inline-block;
       background: var(--bg-container);
       color: var(--text-primary);
       padding: 12px 20px;
-      border-radius: 24px 24px 6px 24px;
-      max-width: min(660px, 85%);
+      border-radius: 24px;
+      max-width: min(600px, 85%);
+      font-size: 15px;
+      line-height: 1.6;
     }
 
     .meta {
-      font-size: 11px;
+      font-size: 11.5px;
       color: var(--text-muted);
       margin-top: 6px;
-      padding: 0 4px;
     }
 
-    /* 阶段进度折叠栏：Gemini 思考过程卡片风格 */
-    details.progress {
-      margin-top: 10px;
-      margin-bottom: 8px;
-      border: 1px solid var(--border-subtle);
+    /* ==========================================
+       首屏欢迎区：去气泡化，采用 Gemini 卡片网格
+       ========================================== */
+    .welcome-hero {
+      white-space: normal;
+      padding: 12px 0 8px;
+    }
+
+    .welcome-greeting {
+      font-size: 28px;
+      font-weight: 500;
+      letter-spacing: -0.5px;
+      color: #1f1f1f;
+      margin: 0 0 8px 0;
+      line-height: 1.3;
+    }
+
+    .welcome-sub {
+      font-size: 15px;
+      color: var(--text-secondary);
+      line-height: 1.65;
+      margin: 0 0 24px 0;
+      max-width: 680px;
+    }
+
+    .prompt-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 10px;
+    }
+
+    .pill-btn {
+      border: none;
+      background: var(--bg-container);
+      color: var(--text-primary);
+      font-size: 13.5px;
+      line-height: 1.5;
+      padding: 16px;
       border-radius: 16px;
-      padding: 10px 16px;
-      background: #f8fafd;
-      transition: all 0.2s ease;
+      cursor: pointer;
+      transition: background-color 0.15s ease;
+      text-align: left;
+      font-family: inherit;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      min-height: 96px;
+    }
+
+    .pill-btn:hover {
+      background: var(--bg-container-hover);
+    }
+
+    .pill-btn-tag {
+      font-size: 11.5px;
+      color: var(--text-muted);
+      margin-top: 12px;
+      font-weight: 500;
+    }
+
+    /* ==========================================
+       思考进度（Gemini 思考折叠栏）
+       ========================================== */
+    details.progress {
+      margin: 4px 0 14px;
+      border: 1px solid var(--border-hairline);
+      border-radius: 12px;
+      padding: 8px 14px;
+      background: var(--bg-surface);
+      white-space: normal;
+      max-width: 520px;
     }
 
     details.progress summary {
@@ -549,18 +575,53 @@
     }
 
     .progress ul {
-      margin: 8px 0 0 18px;
+      margin: 8px 0 2px 0;
       padding: 0;
+      list-style: none;
     }
 
     .progress li {
-      margin: 5px 0;
+      margin: 4px 0;
       font-size: 12.5px;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* ==========================================
+       五段式结构标题：克制的现代研报排版，无 Emoji
+       ========================================== */
+    .fin-badge {
+      display: block;
+      font-weight: 600;
+      font-size: 14px;
+      color: var(--text-primary);
+      margin-top: 18px;
+      margin-bottom: 6px;
+      padding-left: 10px;
+      border-left: 3px solid var(--google-blue);
+      line-height: 1.4;
+    }
+
+    .fin-badge.conclusion { border-left-color: #0b57d0; }
+    .fin-badge.details { border-left-color: #137333; }
+    .fin-badge.risk { border-left-color: #e37400; }
+    .fin-badge.source { border-left-color: #747775; }
+    .fin-badge.disclaimer {
+      border-left-color: #c5221f;
       color: var(--text-secondary);
+      font-size: 13px;
+    }
+
+    .answer-text {
+      line-height: 1.75;
+      font-size: 15.5px;
+      color: var(--text-primary);
     }
 
     .answer-images {
-      margin-top: 14px;
+      margin-top: 16px;
       display: flex;
       flex-direction: column;
       gap: 12px;
@@ -568,13 +629,12 @@
 
     .answer-images img {
       display: block;
-      max-width: min(100%, 600px);
-      max-height: 600px;
+      max-width: min(100%, 580px);
+      max-height: 580px;
       width: auto;
       height: auto;
-      border-radius: 16px;
-      border: 1px solid var(--border-subtle);
-      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+      border-radius: 12px;
+      border: 1px solid var(--border-hairline);
       background: #fff;
     }
 
@@ -585,70 +645,64 @@
       word-break: break-all;
     }
 
-    .answer-images a:hover {
-      text-decoration: underline;
-    }
-
-    /* Gemini 炫彩呼吸加载点 */
     .typing {
       display: inline-flex;
-      gap: 6px;
+      gap: 5px;
       align-items: center;
-      padding: 6px 4px;
+      padding: 8px 0;
     }
 
     .dot {
-      width: 8px;
-      height: 8px;
+      width: 6px;
+      height: 6px;
       border-radius: 50%;
-      background: var(--gemini-gradient);
-      animation: bounce 1.2s infinite ease-in-out;
+      background: #747775;
+      animation: pulse 1.2s infinite ease-in-out;
     }
 
     .dot:nth-child(2) { animation-delay: 0.15s; }
     .dot:nth-child(3) { animation-delay: 0.3s; }
 
-    @keyframes bounce {
-      0%, 80%, 100% { transform: scale(0.75); opacity: 0.45; }
-      40% { transform: scale(1.15); opacity: 1; }
+    @keyframes pulse {
+      0%, 80%, 100% { opacity: 0.25; }
+      40% { opacity: 0.9; }
     }
 
-    /* 底部胶囊输入区 */
+    /* ==========================================
+       底部输入区：Gemini 悬浮大胶囊
+       ========================================== */
     .composer-container {
       width: 100%;
-      max-width: 840px;
+      max-width: 820px;
       margin: 0 auto;
-      padding: 0 20px 18px;
+      padding: 0 24px 16px;
       background: var(--bg-surface);
     }
 
     .composer {
       background: var(--bg-container);
-      border-radius: 32px;
-      padding: 8px 10px 8px 22px;
+      border-radius: 28px;
+      padding: 10px 12px 10px 22px;
       display: flex;
-      gap: 10px;
+      gap: 12px;
       align-items: flex-end;
-      border: 1px solid transparent;
-      transition: background 0.2s, box-shadow 0.2s, border-color 0.2s;
+      transition: background-color 0.2s ease;
     }
 
     .composer:focus-within {
-      background: #ffffff;
-      border-color: #d3e3fd;
-      box-shadow: 0 4px 20px rgba(11, 87, 208, 0.1);
+      background: #e9eef6;
     }
 
     textarea {
       flex: 1;
       resize: none;
-      min-height: 40px;
-      max-height: 150px;
-      padding: 8px 0;
+      min-height: 36px;
+      max-height: 160px;
+      padding: 6px 0;
       border: none;
       background: transparent;
       outline: none;
-      font-size: 15px;
+      font-size: 15.5px;
       line-height: 1.5;
       color: var(--text-primary);
       font-family: inherit;
@@ -659,119 +713,35 @@
     }
 
     .send {
-      width: 40px;
-      height: 40px;
+      width: 36px;
+      height: 36px;
       border: none;
       border-radius: 50%;
       cursor: pointer;
-      color: #fff;
-      background: var(--google-blue);
+      color: #ffffff;
+      background: var(--text-primary);
       display: flex;
       align-items: center;
       justify-content: center;
-      transition: transform 0.15s ease, background 0.2s ease;
+      transition: opacity 0.15s ease, background-color 0.15s ease;
       flex-shrink: 0;
     }
 
     .send:hover:not(:disabled) {
-      background: #0842a0;
-      transform: scale(1.04);
+      background: var(--google-blue);
     }
 
     .send:disabled {
-      background: #e1e5ea;
-      color: #9aa0a6;
+      background: transparent;
+      color: #b0b5ba;
       cursor: not-allowed;
     }
 
     .hint {
       text-align: center;
-      padding-top: 8px;
+      padding-top: 10px;
       color: var(--text-muted);
-      font-size: 11.5px;
-    }
-
-    .kbd {
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-      border: 1px solid var(--border-subtle);
-      padding: 1px 6px;
-      border-radius: 6px;
-      background: var(--bg-container);
-      color: var(--text-secondary);
-      font-size: 11px;
-    }
-
-    /* 预设问题 Suggestion Chips */
-    .pill-btn {
-      border: 1px solid var(--border-subtle);
-      background: var(--bg-surface);
-      color: var(--text-secondary);
-      font-size: 13px;
-      padding: 9px 16px;
-      border-radius: 16px;
-      cursor: pointer;
-      transition: all 0.2s ease;
-      text-align: left;
-      font-family: inherit;
-    }
-
-    .pill-btn:hover {
-      background: var(--bg-container);
-      border-color: #c2e7ff;
-      color: var(--google-blue);
-      transform: translateY(-1px);
-    }
-
-    /* 五段式金融合规徽章（Material 3 柔和语义色） */
-    .fin-badge {
-      display: inline-flex;
-      align-items: center;
-      font-weight: 600;
-      font-size: 13px;
-      margin-top: 14px;
-      margin-bottom: 6px;
-      padding: 4px 12px;
-      border-radius: 8px;
-    }
-
-    .fin-badge.conclusion {
-      color: #0b57d0;
-      background: #e8f0fe;
-    }
-
-    .fin-badge.details {
-      color: #0f5223;
-      background: #e6f4ea;
-    }
-
-    .fin-badge.risk {
-      color: #b06000;
-      background: #fef7e0;
-    }
-
-    .fin-badge.source {
-      color: #444746;
-      background: #f0f4f9;
-    }
-
-    .fin-badge.disclaimer {
-      color: #b3261e;
-      background: #fce8e6;
       font-size: 12px;
-    }
-
-    .answer-text {
-      line-height: 1.75;
-      font-size: 15px;
-      color: var(--text-primary);
-    }
-
-    /* 欢迎卡片装饰 */
-    .welcome-box {
-      background: var(--bg-container);
-      border-radius: 20px;
-      padding: 18px 20px;
-      margin-top: 10px;
     }
   </style>
 </head>
@@ -780,22 +750,26 @@
     <!-- 左侧历史会话抽屉 -->
     <aside class="sidebar" id="sidebar">
       <div class="sidebar-header">
-        <div class="sidebar-title">
-          <span>💬</span>
-          <span>历史会话</span>
-        </div>
-        <button class="btn-collapse-sidebar" id="btnCollapseSidebar" title="收起边栏">‹</button>
+        <button class="btn-icon" id="btnCollapseSidebar" title="收起菜单">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="3" y1="12" x2="21" y2="12"></line>
+            <line x1="3" y1="6" x2="21" y2="6"></line>
+            <line x1="3" y1="18" x2="21" y2="18"></line>
+          </svg>
+        </button>
       </div>
 
       <div class="sidebar-action-wrap">
         <button class="btn-new-chat" id="btnNewChat">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <line x1="12" y1="5" x2="12" y2="19"></line>
             <line x1="5" y1="12" x2="19" y2="12"></line>
           </svg>
-          <span>开启新对话</span>
+          <span>发起新对话</span>
         </button>
       </div>
+
+      <div class="sidebar-section-label">近期对话</div>
 
       <div class="session-list" id="sessionList">
         <!-- 动态渲染历史会话条目 -->
@@ -810,29 +784,16 @@
     <div class="app">
       <div class="topbar">
         <div class="brand">
-          <button class="btn-toggle-sidebar" id="btnToggleSidebar" title="展开/收起历史记录抽屉">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <button class="btn-icon btn-toggle-sidebar" id="btnToggleSidebar" title="展开菜单">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <line x1="3" y1="12" x2="21" y2="12"></line>
               <line x1="3" y1="6" x2="21" y2="6"></line>
               <line x1="3" y1="18" x2="21" y2="18"></line>
             </svg>
           </button>
-          <div class="logo">
-            <!-- Gemini Sparkle SVG -->
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M12 2C12 7.52285 16.4772 12 22 12C16.4772 12 12 16.4772 12 22C12 16.4772 7.52285 12 2 12C7.52285 12 12 7.52285 12 2Z" fill="url(#gemini-grad)"/>
-              <defs>
-                <linearGradient id="gemini-grad" x1="2" y1="2" x2="22" y2="22" gradientUnits="userSpaceOnUse">
-                  <stop stop-color="#4285F4"/>
-                  <stop offset="0.5" stop-color="#9B72CB"/>
-                  <stop offset="1" stop-color="#D96570"/>
-                </linearGradient>
-              </defs>
-            </svg>
-          </div>
           <div class="title">
-            <strong>金融智脑 · 智能合规问答平台</strong>
-            <span id="subTitle">在线 · 覆盖财报 / 基金 / 银行理财 / 宏观政策 / 投教问答</span>
+            <strong>金融智脑</strong>
+            <span id="subTitle">智能合规问答</span>
           </div>
         </div>
         <div class="top-actions">
@@ -840,51 +801,68 @@
             <input type="checkbox" id="streamToggle" checked> 流式输出
           </label>
           <span class="pill" id="apiPill">API: 未连接</span>
-          <button class="btn" id="btnClear" title="清空当前会话的历史对话">清空记录</button>
+          <button class="btn" id="btnClear" title="清空当前会话的历史对话">清空对话</button>
         </div>
       </div>
 
-    <div class="chat" id="chat">
-      <div class="dayline">今天</div>
-      <div class="msg bot">
-        <div class="avatar bot">金融智脑</div>
-        <div>
-          <div class="bubble">
-            您好！我是<strong>金融智脑</strong>合规问答助手。本系统严格遵守金融合规红线，基于已收录的<strong>上市公司财报、基金产品概要、银行理财风险揭示书、宏观经济公报及投教知识库</strong>，为您提供客观、严谨、可追溯的资料解答。
-            <div class="welcome-box">
-              <div style="font-size:13px;color:var(--text-secondary);margin-bottom:12px;font-weight:500;">✨ 常见业务场景快速体验（点击直接填入输入框）：</div>
-              <div style="display:flex;flex-wrap:wrap;gap:8px;">
-                <button class="pill-btn" onclick="fillInput('贵州茅台酒股份有限公司2026年第一季度营业收入和净利润分别是多少？')">📊 贵州茅台2026一季报核心财务数据</button>
-                <button class="pill-btn" onclick="fillInput('华夏国证自由现金流ETF发起式联接基金的风险等级是什么？投资范围包含哪些？')">📈 华夏自由现金流ETF联接基金要素</button>
-                <button class="pill-btn" onclick="fillInput('中国建设银行人民币理财产品是否保本？主要面临哪些风险？')">🛡️ 建设银行理财产品保本问答与风险揭示</button>
-                <button class="pill-btn" onclick="fillInput('什么是基金最大回撤？基金净值和累计净值有什么区别？')">📚 什么是基金最大回撤与净值？</button>
-                <button class="pill-btn" onclick="fillInput('私募基金合格投资者的认定资产门槛和最低起投金额是多少？')">📋 私募基金合格投资者认定门槛</button>
-                <button class="pill-btn" onclick="fillInput('你强烈建议我现在全仓买入招商银行股票吗？')">⚖️ 合规测试：能否提供个股买入建议？</button>
+      <div class="chat" id="chat">
+        <div class="dayline">今天</div>
+        <div class="msg bot">
+          <div class="avatar bot">金融智脑</div>
+          <div>
+            <div class="bubble">
+              <div class="welcome-hero">
+                <h2 class="welcome-greeting">您好，请问需要检索哪项金融合规资料？</h2>
+                <p class="welcome-sub">基于已收录的上市公司财报、基金产品概要、银行理财风险揭示书、宏观经济公报及投教知识库，提供客观、可溯源的合规解答。</p>
+                <div class="prompt-grid">
+                  <button class="pill-btn" onclick="fillInput('贵州茅台酒股份有限公司2026年第一季度营业收入和净利润分别是多少？')">
+                    <span>贵州茅台 2026 一季报营业收入与净利润数据</span>
+                    <span class="pill-btn-tag">上市公司财报</span>
+                  </button>
+                  <button class="pill-btn" onclick="fillInput('华夏国证自由现金流ETF发起式联接基金的风险等级是什么？投资范围包含哪些？')">
+                    <span>华夏自由现金流 ETF 联接基金风险等级与投资范围</span>
+                    <span class="pill-btn-tag">基金产品概要</span>
+                  </button>
+                  <button class="pill-btn" onclick="fillInput('中国建设银行人民币理财产品是否保本？主要面临哪些风险？')">
+                    <span>建设银行人民币理财产品保本条款与风险揭示</span>
+                    <span class="pill-btn-tag">银行理财条款</span>
+                  </button>
+                  <button class="pill-btn" onclick="fillInput('什么是基金最大回撤？基金净值和累计净值有什么区别？')">
+                    <span>基金最大回撤、单位净值与累计净值的核心区别</span>
+                    <span class="pill-btn-tag">投资者教育</span>
+                  </button>
+                  <button class="pill-btn" onclick="fillInput('私募基金合格投资者的认定资产门槛和最低起投金额是多少？')">
+                    <span>私募基金合格投资者资产认定门槛与起投金额</span>
+                    <span class="pill-btn-tag">监管合规标准</span>
+                  </button>
+                  <button class="pill-btn" onclick="fillInput('你强烈建议我现在全仓买入招商银行股票吗？')">
+                    <span>合规红线测试：要求提供个股全仓买入建议</span>
+                    <span class="pill-btn-tag">投顾合规测试</span>
+                  </button>
+                </div>
               </div>
             </div>
+            <div class="meta">客观严谨 · 零幻觉 · 五段式结构输出</div>
           </div>
-          <div class="meta">声明：客观严谨 · 零幻觉 · 五段式结构输出 · 绝无投资推荐导向</div>
         </div>
       </div>
-    </div>
 
-    <div class="composer-container">
-      <div class="composer">
-        <textarea id="input" rows="1" placeholder="向金融智脑提问：输入金融知识、财报数据或理财条款问题..."></textarea>
-        <button class="send" id="send" title="发送">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-            <line x1="22" y1="2" x2="11" y2="13"></line>
-            <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
-          </svg>
-        </button>
+      <div class="composer-container">
+        <div class="composer">
+          <textarea id="input" rows="1" placeholder="输入财报数据、基金要素或理财条款问题..."></textarea>
+          <button class="send" id="send" title="发送">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="12" y1="19" x2="12" y2="5"></line>
+              <polyline points="5 12 12 5 19 12"></polyline>
+            </svg>
+          </button>
+        </div>
+        <div class="hint">金融智脑严格遵循合规准则，输出内容仅供参考，不构成任何投资建议 · Enter 发送，Shift + Enter 换行</div>
       </div>
-      <div class="hint">金融智脑严格遵循合规准则，不构成任何投资建议 · 快捷键：<span class="kbd">Enter</span> 发送，<span class="kbd">Shift</span>+<span class="kbd">Enter</span> 换行</div>
     </div>
   </div>
-</div>
 
   <script>
-    // 默认走查询服务同源地址；如你把页面单独打开（file://），回退到查询服务默认端口。
     const API_BASE = location.origin.startsWith('http') ? location.origin : 'http://127.0.0.1:8001';
     const chatEl = document.getElementById('chat');
     const inputEl = document.getElementById('input');
@@ -893,15 +871,11 @@
     const btnClear = document.getElementById('btnClear');
     const streamToggle = document.getElementById('streamToggle');
 
-    // 输入框自适应高度
     inputEl.addEventListener('input', () => {
       inputEl.style.height = 'auto';
-      inputEl.style.height = Math.min(inputEl.scrollHeight, 150) + 'px';
+      inputEl.style.height = Math.min(inputEl.scrollHeight, 160) + 'px';
     });
 
-    // ==========================================
-    // 历史会话抽屉管理与本地持久化 (LocalStorage)
-    // ==========================================
     const SESSIONS_KEY = 'finance_brain_sessions';
     const ACTIVE_KEY = 'finance_brain_active_session';
     const COLLAPSED_KEY = 'finance_brain_sidebar_collapsed';
@@ -915,7 +889,6 @@
     const btnClearAllSessions = document.getElementById('btnClearAllSessions');
     const subTitleEl = document.getElementById('subTitle');
 
-    // 侧边栏折叠/展开记忆
     if (localStorage.getItem(COLLAPSED_KEY) === 'true') {
       sidebarEl.classList.add('collapsed');
     }
@@ -926,7 +899,6 @@
     if (btnToggleSidebar) btnToggleSidebar.addEventListener('click', toggleSidebar);
     if (btnCollapseSidebar) btnCollapseSidebar.addEventListener('click', toggleSidebar);
 
-    // 获取本地会话列表
     function getStoredSessions() {
       try {
         const raw = localStorage.getItem(SESSIONS_KEY);
@@ -941,7 +913,6 @@
       localStorage.setItem(SESSIONS_KEY, JSON.stringify(list));
     }
 
-    // 相对时间展示
     function formatRelativeTime(ts) {
       if (!ts) return '刚刚';
       const now = Date.now();
@@ -959,10 +930,6 @@
 
     let sessions = getStoredSessions();
 
-    // 确定当前会话 ID:
-    // 1. URL 参数中指定 ?session=xxx 或 ?user=xxx 优先
-    // 2. 否则取本地记录的 active session
-    // 3. 否则取 sessions 列表首项，或新建全新会话
     const urlParams = new URLSearchParams(window.location.search);
     const queryUser = urlParams.get('user') || urlParams.get('session');
     let sessionId = "";
@@ -1004,7 +971,7 @@
     function updateSubTitle(title) {
       if (!subTitleEl) return;
       const display = title || (sessions.find(s => s.id === sessionId)?.title) || '新对话';
-      subTitleEl.textContent = `在线 · 会话: ${display} · 覆盖财报 / 基金 / 银行理财 / 宏观政策 / 投教问答`;
+      subTitleEl.textContent = display;
     }
 
     function renderSessionList() {
@@ -1012,7 +979,7 @@
       sessionListEl.innerHTML = '';
 
       if (sessions.length === 0) {
-        sessionListEl.innerHTML = '<div class="session-empty">暂无历史会话<br/><span style="font-size:11px;opacity:0.7;">点击上方按钮开启新对话</span></div>';
+        sessionListEl.innerHTML = '<div class="session-empty">暂无对话记录</div>';
         if (sessionCountEl) sessionCountEl.textContent = '共 0 个会话';
         return;
       }
@@ -1027,25 +994,37 @@
         itemEl.title = item.title || '新对话';
 
         itemEl.innerHTML = `
-          <div class="session-icon">💬</div>
+          <div class="session-icon">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+            </svg>
+          </div>
           <div class="session-info">
             <div class="session-title">${escapeHtml(item.title || '新对话')}</div>
             <div class="session-time">${formatRelativeTime(item.updatedAt || item.createdAt)}</div>
           </div>
           <div class="session-actions">
-            <button class="btn-session-action btn-rename" title="重命名会话">✏️</button>
-            <button class="btn-session-action btn-delete" title="删除会话">🗑️</button>
+            <button class="btn-session-action btn-rename" title="重命名">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 20h9"></path>
+                <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+              </svg>
+            </button>
+            <button class="btn-session-action btn-delete" title="删除">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="3 6 5 6 21 6"></polyline>
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+              </svg>
+            </button>
           </div>
         `;
 
-        // 切换会话
         itemEl.addEventListener('click', (e) => {
           if (e.target.closest('.btn-session-action')) return;
           if (item.id === sessionId) return;
           switchSession(item.id);
         });
 
-        // 重命名
         const btnRename = itemEl.querySelector('.btn-rename');
         btnRename.addEventListener('click', (e) => {
           e.stopPropagation();
@@ -1059,7 +1038,6 @@
           }
         });
 
-        // 删除
         const btnDelete = itemEl.querySelector('.btn-delete');
         btnDelete.addEventListener('click', async (e) => {
           e.stopPropagation();
@@ -1142,7 +1120,6 @@
       });
     }
 
-    // 首次提问时自动根据问题内容重命名会话标题
     function autoIndexSession(queryText) {
       if (!queryText) return;
       let curr = sessions.find(s => s.id === sessionId);
@@ -1156,14 +1133,12 @@
         sessions.unshift(curr);
       }
 
-      // 如果当前是初始名字或未命名，提取前 22 个字命名
       if (curr.title === '新对话' || !curr.title || curr.title.startsWith('sess-')) {
         const clean = queryText.replace(/[\r\n]+/g, ' ').trim();
         curr.title = clean.length > 22 ? clean.slice(0, 22) + '...' : clean;
       }
       curr.updatedAt = Date.now();
       
-      // 置顶最近更新的会话
       sessions = [curr, ...sessions.filter(s => s.id !== sessionId)];
       saveStoredSessions(sessions);
       renderSessionList();
@@ -1204,7 +1179,7 @@
       if(el){
         el.value = queryText;
         el.style.height = 'auto';
-        el.style.height = Math.min(el.scrollHeight, 150) + 'px';
+        el.style.height = Math.min(el.scrollHeight, 160) + 'px';
         el.focus();
       }
     }
@@ -1213,14 +1188,12 @@
       if(!rawText) return '';
       let html = escapeHtml(rawText);
 
-      // 结构化格式化五段式标题徽章
-      html = html.replace(/【简要结论】/g, '<div class="fin-badge conclusion">🎯 【简要结论】</div>');
-      html = html.replace(/【详细解析】/g, '<div class="fin-badge details">📊 【详细解析】</div>');
-      html = html.replace(/【风险提示(?:\/注意事项)?】|【风险提示】|【注意事项】/g, '<div class="fin-badge risk">⚠️ 【风险提示 / 注意事项】</div>');
-      html = html.replace(/【引用来源】/g, '<div class="fin-badge source">📌 【引用来源】</div>');
-      html = html.replace(/【合规免责声明】/g, '<div class="fin-badge disclaimer">⚖️ 【合规免责声明】</div>');
+      html = html.replace(/【简要结论】/g, '<div class="fin-badge conclusion">简要结论</div>');
+      html = html.replace(/【详细解析】/g, '<div class="fin-badge details">详细解析</div>');
+      html = html.replace(/【风险提示(?:\/注意事项)?】|【风险提示】|【注意事项】/g, '<div class="fin-badge risk">风险提示与注意事项</div>');
+      html = html.replace(/【引用来源】/g, '<div class="fin-badge source">引用来源</div>');
+      html = html.replace(/【合规免责声明】/g, '<div class="fin-badge disclaimer">合规免责声明</div>');
 
-      // 换行与段落
       html = html.replace(/\n\n/g, '<br/><br/>').replace(/\n/g, '<br/>');
       return html;
     }
@@ -1441,7 +1414,7 @@
             <div class="bubble">
               <span class="typing"><span class="dot"></span><span class="dot"></span><span class="dot"></span></span>
               <details class="progress" open>
-                <summary>阶段进度（等待中）</summary>
+                <summary>思考与检索进度</summary>
                 <ul></ul>
               </details>
             </div>
@@ -1464,22 +1437,22 @@
       const totalRun = running.length;
 
       const statusMap = {
-        'processing': '处理中',
+        'processing': '检索中',
         'completed': '已完成',
-        'failed': '失败',
-        'pending': '等待中',
+        'failed': '异常',
+        'pending': '准备中',
       };
       const displayStatus = statusMap[status] || status || 'unknown';
 
-      summary.textContent = `阶段进度（已完成${totalDone}，进行中${totalRun}，状态：${displayStatus}）`;
+      summary.textContent = `检索阶段（已完成 ${totalDone} 项 · ${displayStatus}）`;
 
       const lines = [
-        ...done.map(x => `✅ ${x}`),
-        ...running.map(x => `⏳ ${x}`)
+        ...done.map(x => `[完成] ${x}`),
+        ...running.map(x => `[进行中] ${x}`)
       ];
       ul.innerHTML = '';
       if(lines.length === 0){
-        ul.insertAdjacentHTML('beforeend', '<li>暂无进度</li>');
+        ul.insertAdjacentHTML('beforeend', '<li>正在初始化检索管线...</li>');
       }else{
         for(const line of lines){
           ul.insertAdjacentHTML('beforeend', `<li>${escapeHtml(line)}</li>`);
@@ -1594,7 +1567,6 @@
     }
 
     async function onSend(){
-      console.log('[perf] A onSend start', performance.now());
       const text = (inputEl.value || '').trim();
       if(!text) return;
       inputEl.value = '';
@@ -1606,9 +1578,7 @@
 
       try{
         const isStream = streamToggle.checked;
-        console.log('[perf] B submitQuery start', performance.now(), { isStream });
         const data = await submitQuery(text);
-        console.log('[perf] B submitQuery end', performance.now(), data);
         
         renderProgress(botMsgEl, [], [], 'pending');
 
@@ -1630,7 +1600,6 @@
         }
 
         const es = new EventSource(`${API_BASE}/stream/${session_id}`);
-        console.log('[perf] C EventSource created', performance.now(), { session_id });
         let rawAnswerText = '';
 
         es.addEventListener('progress', (e) => {
@@ -1727,11 +1696,9 @@
       try {
         const res = await fetch(`${API_BASE}/history/${sessionId}`, { method: 'DELETE' });
         if(!res.ok) {
-           console.error("Failed to clear history backend, status:", res.status);
            alert('服务端清空失败，仅清空本地显示');
         }
       } catch(e) {
-        console.error("Failed to clear history backend", e);
         alert('服务端清空失败，仅清空本地显示');
       }
 

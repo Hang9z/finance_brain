@@ -1,76 +1,90 @@
-<!-- 导入演示页面，用于上传文档并观察导入状态（Google Workspace / Gemini 风格重制版） -->
+<!-- 导入演示页面，用于上传文档并观察导入状态（Google NotebookLM 极简工作台风格） -->
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>金融知识库资料导入中心</title>
+    <title>资料导入 · 金融智脑</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Noto+Sans+SC:wght@400;500;600&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg-page: #f0f4f9;
-            --bg-card: #ffffff;
+            --bg-surface: #ffffff;
+            --bg-subtle: #f8fafd;
+            --bg-container: #f0f4f9;
             --text-primary: #1f1f1f;
             --text-secondary: #444746;
             --text-muted: #747775;
             --google-blue: #0b57d0;
-            --google-blue-bg: #f8fafd;
-            --border-subtle: #e3e3e3;
-            --gemini-gradient: linear-gradient(135deg, #4285f4 0%, #9b72cb 50%, #d96570 100%);
+            --border-color: #e3e3e3;
+            --font-sans: 'Inter', 'Noto Sans SC', -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
         }
 
         * { box-sizing: border-box; }
 
         body {
-            font-family: 'Inter', 'Noto Sans SC', "Google Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-            background-color: var(--bg-page);
+            font-family: var(--font-sans);
+            background-color: var(--bg-surface);
             color: var(--text-primary);
             margin: 0;
-            padding: 48px 20px;
-            display: flex;
-            justify-content: center;
             min-height: 100vh;
+            display: flex;
+            flex-direction: column;
             -webkit-font-smoothing: antialiased;
         }
 
-        .container {
-            width: 100%;
-            max-width: 780px;
-            background-color: var(--bg-card);
-            padding: 40px 44px;
-            border-radius: 28px;
-            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.04);
-            align-self: flex-start;
+        /* 顶部应用栏：与问答页保持统一的 Google 工作台顶栏 */
+        .topbar {
+            height: 60px;
+            padding: 0 28px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid var(--border-color);
+            background: var(--bg-surface);
         }
 
-        .header-badge {
-            display: inline-flex;
+        .topbar-brand {
+            display: flex;
             align-items: center;
-            gap: 6px;
-            padding: 5px 14px;
-            border-radius: 999px;
-            background: linear-gradient(135deg, rgba(66,133,244,0.1), rgba(155,114,203,0.1));
-            color: var(--google-blue);
-            font-size: 12px;
-            font-weight: 600;
-            margin-bottom: 14px;
+            gap: 10px;
+        }
+
+        .topbar-brand strong {
+            font-size: 17px;
+            font-weight: 500;
+            color: var(--text-secondary);
+        }
+
+        .topbar-divider {
+            color: #c4c7c5;
+            font-weight: 300;
+        }
+
+        .topbar-module {
+            font-size: 14px;
+            color: var(--text-muted);
+        }
+
+        /* 主容器：左对齐现代控制台布局 */
+        .container {
+            width: 100%;
+            max-width: 860px;
+            margin: 0 auto;
+            padding: 40px 24px 64px;
         }
 
         .header-wrap {
-            text-align: center;
-            margin-bottom: 32px;
+            margin-bottom: 28px;
         }
 
         h1 {
-            font-size: 26px;
-            font-weight: 600;
-            margin: 0 0 10px 0;
-            letter-spacing: -0.3px;
-            background: linear-gradient(90deg, #1f1f1f 0%, #0b57d0 55%, #9b72cb 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
+            font-size: 22px;
+            font-weight: 500;
+            color: var(--text-primary);
+            margin: 0 0 8px 0;
+            letter-spacing: -0.2px;
         }
 
         .subtitle {
@@ -80,38 +94,37 @@
             margin: 0;
         }
 
-        /* Google Drive / NotebookLM 风格上传区 */
+        /* Google NotebookLM 风格上传区：干净克制，无艳丽背景 */
         .upload-area {
-            border: 2px dashed #c2e7ff;
-            background-color: var(--google-blue-bg);
-            border-radius: 24px;
-            padding: 48px 32px;
+            border: 1px dashed #c4c7c5;
+            background-color: var(--bg-subtle);
+            border-radius: 16px;
+            padding: 44px 32px;
             text-align: center;
             cursor: pointer;
-            transition: all 0.25s ease;
-            margin-bottom: 24px;
+            transition: background-color 0.15s ease, border-color 0.15s ease;
         }
 
         .upload-area:hover {
-            background-color: #edf2fa;
-            border-color: var(--google-blue);
-            transform: translateY(-2px);
+            background-color: var(--bg-container);
+            border-color: var(--text-secondary);
         }
 
         .upload-icon {
-            width: 60px;
-            height: 60px;
+            width: 44px;
+            height: 44px;
             border-radius: 50%;
-            background: #e8f0fe;
-            color: var(--google-blue);
+            background: #ffffff;
+            border: 1px solid var(--border-color);
+            color: var(--text-secondary);
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            margin-bottom: 16px;
+            margin-bottom: 14px;
         }
 
         .upload-title {
-            font-size: 16px;
+            font-size: 15px;
             font-weight: 500;
             color: var(--text-primary);
             margin: 0 0 6px 0;
@@ -123,50 +136,31 @@
             margin: 0;
         }
 
-        .format-chips {
-            display: inline-flex;
-            gap: 8px;
-            margin-top: 16px;
-            flex-wrap: wrap;
-            justify-content: center;
-        }
-
-        .format-chip {
-            font-size: 11.5px;
-            font-weight: 500;
-            color: var(--text-secondary);
-            background: #ffffff;
-            border: 1px solid var(--border-subtle);
-            padding: 4px 12px;
-            border-radius: 999px;
-        }
-
         .file-input {
             display: none;
         }
 
+        /* 任务列表区域 */
         .file-list {
-            margin-top: 24px;
+            margin-top: 28px;
             display: flex;
             flex-direction: column;
-            gap: 12px;
+            gap: 10px;
         }
 
-        /* 任务列表项卡片 */
         .file-item {
-            background-color: #f8fafd;
-            border: 1px solid #e8eef5;
-            border-radius: 18px;
-            padding: 18px 22px;
+            background-color: var(--bg-surface);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 16px 20px;
             display: flex;
             justify-content: space-between;
             align-items: flex-start;
-            transition: box-shadow 0.2s ease, border-color 0.2s ease;
+            transition: border-color 0.15s ease;
         }
 
         .file-item:hover {
-            border-color: #d3e3fd;
-            box-shadow: 0 4px 14px rgba(11, 87, 208, 0.05);
+            border-color: #c4c7c5;
         }
 
         .file-info {
@@ -178,8 +172,8 @@
         }
 
         .file-name {
-            font-weight: 600;
-            font-size: 14.5px;
+            font-weight: 500;
+            font-size: 14px;
             color: var(--text-primary);
             word-break: break-all;
         }
@@ -188,15 +182,15 @@
             font-size: 12px;
             color: var(--text-muted);
             margin-top: 4px;
+            font-variant-numeric: tabular-nums;
         }
 
-        /* Material 3 状态胶囊 */
+        /* 状态标签 */
         .status-badge {
-            padding: 6px 14px;
-            border-radius: 999px;
+            padding: 4px 10px;
+            border-radius: 6px;
             font-size: 12px;
-            font-weight: 600;
-            min-width: 86px;
+            font-weight: 500;
             text-align: center;
             flex-shrink: 0;
         }
@@ -221,11 +215,11 @@
             color: #c5221f;
         }
 
-        /* Material 线性进度条 */
+        /* 极细线性进度条 */
         .progress-bar-container {
             width: 100%;
-            height: 6px;
-            background-color: #e1e5ea;
+            height: 4px;
+            background-color: var(--bg-container);
             margin-top: 12px;
             border-radius: 999px;
             overflow: hidden;
@@ -234,34 +228,39 @@
 
         .progress-bar {
             height: 100%;
-            background: var(--gemini-gradient);
+            background-color: var(--google-blue);
             width: 0%;
             border-radius: 999px;
-            transition: width 0.35s ease, background-color 0.3s ease;
+            transition: width 0.3s ease, background-color 0.3s ease;
         }
 
-        /* 任务日志折叠面板 */
+        /* 任务日志折叠栏 */
         .log-details {
             margin-top: 10px;
             font-size: 12.5px;
             color: var(--text-secondary);
-            background: #ffffff;
-            border: 1px solid var(--border-subtle);
-            border-radius: 12px;
-            padding: 8px 14px;
         }
 
         .log-details summary {
             cursor: pointer;
             user-select: none;
-            color: var(--text-secondary);
-            font-weight: 500;
+            color: var(--text-muted);
+            font-size: 12px;
             outline: none;
         }
 
+        .log-details summary:hover {
+            color: var(--text-primary);
+        }
+
         .log-list {
-            margin: 8px 0 2px 18px;
-            padding: 0;
+            margin: 8px 0 0 0;
+            padding: 8px 12px;
+            list-style: none;
+            background: var(--bg-subtle);
+            border-radius: 8px;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: 12px;
         }
 
         .log-list li {
@@ -273,28 +272,40 @@
 </head>
 <body>
 
+<header class="topbar">
+    <div class="topbar-brand">
+        <svg width="20" height="20" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M14 28C14 21.75 9.52 14 0 14C9.52 14 14 6.25 14 0C14 6.25 18.48 14 28 14C18.48 14 14 21.75 14 28Z" fill="url(#g)"/>
+            <defs>
+                <linearGradient id="g" x1="0" y1="0" x2="28" y2="28" gradientUnits="userSpaceOnUse">
+                    <stop stop-color="#4285F4"/>
+                    <stop offset="0.5" stop-color="#9B72CB"/>
+                    <stop offset="1" stop-color="#D96570"/>
+                </linearGradient>
+            </defs>
+        </svg>
+        <strong>金融智脑</strong>
+        <span class="topbar-divider">/</span>
+        <span class="topbar-module">知识库文档导入</span>
+    </div>
+</header>
+
 <div class="container">
     <div class="header-wrap">
-        <div class="header-badge">✦ Knowledge Base Ingestion</div>
-        <h1>金融知识库资料导入中心</h1>
-        <p class="subtitle">支持上市公司财报、基金产品概要、银行理财风险揭示书、宏观政策报告及投教 FAQ 结构化入库</p>
+        <h1>添加知识源文档</h1>
+        <p class="subtitle">上传上市公司定期财报、基金招募说明书、银行理财风险揭示书或监管政策文件，系统将自动执行文本切片与向量索引。</p>
     </div>
     
     <div class="upload-area" id="dropZone" onclick="document.getElementById('fileInput').click()">
         <div class="upload-icon">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
                 <polyline points="17 8 12 3 7 8"></polyline>
                 <line x1="12" y1="3" x2="12" y2="15"></line>
             </svg>
         </div>
-        <p class="upload-title">点击选择文件，或将文件拖拽至此处上传</p>
-        <p class="upload-hint">系统将自动完成文档切片、向量化索引及合规元数据抽取</p>
-        <div class="format-chips">
-            <span class="format-chip">PDF 文档 (.pdf)</span>
-            <span class="format-chip">Word 文档 (.docx / .doc)</span>
-            <span class="format-chip">Markdown (.md)</span>
-        </div>
+        <p class="upload-title">拖拽文件至此处，或点击选择本地文件</p>
+        <p class="upload-hint">支持格式：PDF (.pdf)、Word (.docx / .doc)、Markdown (.md)</p>
         <input type="file" id="fileInput" class="file-input" multiple accept=".pdf,.md,.docx,.doc">
     </div>
 
@@ -308,12 +319,11 @@
     const fileInput = document.getElementById('fileInput');
     const fileList = document.getElementById('fileList');
     
-    // 默认走导入服务同源地址；如你把页面单独打开（file://），回退到导入服务默认端口。
     const API_BASE = location.origin.startsWith('http') ? location.origin : 'http://127.0.0.1:8000';
 
     dropZone.addEventListener('dragover', (e) => {
         e.preventDefault();
-        dropZone.style.backgroundColor = '#e8f0fe';
+        dropZone.style.backgroundColor = '#f0f4f9';
         dropZone.style.borderColor = '#0b57d0';
     });
 
@@ -341,14 +351,13 @@
     function updateProgressBar(bar, percentage) {
         bar.style.width = percentage + '%';
         if (percentage >= 100) {
-            bar.style.background = '#137333'; // Google Green
+            bar.style.backgroundColor = '#137333';
         } else {
-            bar.style.background = 'linear-gradient(90deg, #4285f4, #9b72cb)'; // Gemini Gradient
+            bar.style.backgroundColor = '#0b57d0';
         }
     }
 
     async function uploadFile(file) {
-        // 创建文件项UI
         const id = 'file-' + Math.random().toString(36).substr(2, 9);
         const html = `
             <div class="file-item" id="${id}">
@@ -359,11 +368,11 @@
                         <div class="progress-bar"></div>
                     </div>
                     <details class="log-details">
-                        <summary>日志（点击展开）</summary>
+                        <summary>查看处理日志</summary>
                         <ul class="log-list"></ul>
                     </details>
                 </div>
-                <div class="status-badge status-uploading">上传中...</div>
+                <div class="status-badge status-uploading">上传中</div>
             </div>
         `;
         fileList.insertAdjacentHTML('afterbegin', html);
@@ -372,14 +381,11 @@
         const progressBar = itemEl.querySelector('.progress-bar');
         const progressContainer = itemEl.querySelector('.progress-bar-container');
 
-        // 构建FormData
         const formData = new FormData();
         formData.append('files', file);
 
         try {
-            // 1. 上传文件
             progressContainer.style.display = 'block';
-            // 模拟上传进度
             updateProgressBar(progressBar, 50);
 
             const response = await fetch(`${API_BASE}/upload`, {
@@ -390,14 +396,12 @@
             if (!response.ok) throw new Error('Upload failed');
             
             const result = await response.json();
-            const taskId = result.task_ids[0]; // 假设一次传一个或取第一个
+            const taskId = result.task_ids[0];
 
-            // 上传完成，进入处理中，进度固定为30%
             updateProgressBar(progressBar, 30);
-            statusBadge.textContent = '处理中...';
+            statusBadge.textContent = '索引中';
             statusBadge.className = 'status-badge status-processing';
 
-            // 2. 轮询状态
             pollStatus(taskId, itemEl);
 
         } catch (error) {
@@ -426,7 +430,7 @@
         const done = Array.isArray(doneList) ? doneList : [];
         const running = Array.isArray(runningList) ? runningList : [];
 
-        logSummary.textContent = `日志（已完成${done.length}，进行中${running.length}，点击展开）`;
+        logSummary.textContent = `处理日志（已完成 ${done.length}，进行中 ${running.length}）`;
 
         logListEl.innerHTML = '';
         const lines = [
@@ -468,7 +472,7 @@
                     updateProgressBar(progressBar, 100);
                     clearInterval(interval);
                 } else if (data.status === 'processing') {
-                    statusBadge.textContent = '处理中...';
+                    statusBadge.textContent = '索引中';
                     updateProgressBar(progressBar, 30);
                 } else if (data.status === 'failed') {
                     statusBadge.textContent = '失败';
