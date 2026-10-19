@@ -174,6 +174,48 @@
       cursor: not-allowed;
     }
 
+    /* 多用户切换徽章与新建会话按钮 */
+    .user-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 12px;
+      border-radius: 999px;
+      background: var(--bg-container);
+      border: 1px solid var(--border-subtle);
+      font-size: 13px;
+      color: var(--text-secondary);
+      font-weight: 500;
+    }
+
+    .user-select {
+      border: none;
+      background: transparent;
+      color: var(--text-primary);
+      font-size: 13px;
+      font-weight: 500;
+      outline: none;
+      cursor: pointer;
+      font-family: inherit;
+    }
+
+    .btn-new {
+      background: var(--google-blue-light);
+      color: var(--google-blue);
+      border: 1px solid rgba(11, 87, 208, 0.2);
+      padding: 6px 14px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      font-family: inherit;
+    }
+
+    .btn-new:hover {
+      background: #c2d7fb;
+    }
+
     /* 聊天主视窗 */
     .chat {
       flex: 1;
@@ -552,11 +594,22 @@
         </div>
       </div>
       <div class="top-actions">
+        <div class="user-badge" title="当前身份/会话隔离标识（支持多用户独立隔离）">
+          <span>👤</span>
+          <select id="userSelector" class="user-select">
+            <option value="auto">独立会话 (标签页隔离)</option>
+            <option value="alice">投资者 Alice</option>
+            <option value="bob">投研经理 Bob</option>
+            <option value="compliance">合规审计 Carol</option>
+            <option value="custom">✍️ 自定义用户...</option>
+          </select>
+        </div>
+        <button class="btn-new" id="btnNewSession" title="新建独立会话，开启全新的空历史对话">➕ 新对话</button>
         <label class="stream-label">
           <input type="checkbox" id="streamToggle" checked> 流式输出
         </label>
         <span class="pill" id="apiPill">API: 未连接</span>
-        <button class="btn" id="btnClear">清空对话</button>
+        <button class="btn" id="btnClear" title="清空当前用户的历史对话">清空记录</button>
       </div>
     </div>
 
@@ -614,11 +667,94 @@
       inputEl.style.height = Math.min(inputEl.scrollHeight, 150) + 'px';
     });
 
-    // Session ID Logic
-    let sessionId = localStorage.getItem('kb_session_id');
-    if (!sessionId) {
-      sessionId = 'sess-' + Math.random().toString(36).slice(2) + Date.now().toString(36);
-      localStorage.setItem('kb_session_id', sessionId);
+    // Session ID & 多用户访问隔离逻辑
+    const urlParams = new URLSearchParams(window.location.search);
+    const queryUser = urlParams.get('user') || urlParams.get('session');
+    const userSelector = document.getElementById('userSelector');
+    const btnNewSession = document.getElementById('btnNewSession');
+    const subTitleEl = document.getElementById('subTitle');
+
+    // 确定当前会话 ID:
+    // 1. 如果 URL 中指定了 ?user=xxx 或 ?session=xxx，优先级最高，强绑定该用户
+    // 2. 否则使用 sessionStorage（浏览器每个新建标签页/窗口自动拥有独立会话，互不串台与冲突！）
+    let sessionId = "";
+    if (queryUser) {
+      sessionId = queryUser.startsWith("sess-") || queryUser.startsWith("user_") ? queryUser : `user_${queryUser}`;
+    } else {
+      sessionId = sessionStorage.getItem('kb_session_id');
+      if (!sessionId) {
+        sessionId = 'sess-' + Math.random().toString(36).slice(2, 8) + '-' + Date.now().toString(36);
+        sessionStorage.setItem('kb_session_id', sessionId);
+      }
+    }
+
+    function syncUserUI() {
+      if (!userSelector) return;
+      if (queryUser) {
+        const standardUsers = ['alice', 'bob', 'compliance'];
+        if (standardUsers.includes(queryUser)) {
+          userSelector.value = queryUser;
+        } else {
+          let customOpt = userSelector.querySelector('option[data-custom="true"]');
+          if (!customOpt) {
+            customOpt = document.createElement('option');
+            customOpt.setAttribute('data-custom', 'true');
+            userSelector.appendChild(customOpt);
+          }
+          customOpt.value = queryUser;
+          customOpt.textContent = `用户: ${queryUser}`;
+          userSelector.value = queryUser;
+        }
+      } else {
+        userSelector.value = 'auto';
+      }
+
+      if (subTitleEl) {
+        const displayTag = queryUser ? `当前用户: ${queryUser}` : `独立会话: ${sessionId.slice(0, 14)}`;
+        subTitleEl.textContent = `在线 · ${displayTag} · 覆盖财报 / 基金 / 银行理财 / 宏观政策 / 投教问答`;
+      }
+    }
+
+    syncUserUI();
+
+    if (btnNewSession) {
+      btnNewSession.addEventListener('click', () => {
+        const newId = 'sess-' + Math.random().toString(36).slice(2, 8) + '-' + Date.now().toString(36);
+        sessionStorage.setItem('kb_session_id', newId);
+        if (window.location.search) {
+          window.location.href = window.location.pathname;
+        } else {
+          sessionId = newId;
+          syncUserUI();
+          resetChatView();
+        }
+      });
+    }
+
+    if (userSelector) {
+      userSelector.addEventListener('change', (e) => {
+        const val = e.target.value;
+        if (val === 'custom') {
+          const customName = prompt('请输入模拟用户名或独立会话标识（例如：zhangsan、trader01）：');
+          if (customName && customName.trim()) {
+            const cleanName = encodeURIComponent(customName.trim());
+            window.location.search = `?user=${cleanName}`;
+          } else {
+            syncUserUI();
+          }
+        } else if (val === 'auto') {
+          sessionStorage.removeItem('kb_session_id');
+          window.location.href = window.location.pathname;
+        } else {
+          window.location.search = `?user=${val}`;
+        }
+      });
+    }
+
+    function resetChatView() {
+      const nodes = Array.from(chatEl.querySelectorAll('.msg'));
+      for (let i = 1; i < nodes.length; i++) nodes[i].remove();
+      scrollToBottom();
     }
 
     function scrollToBottom(){
