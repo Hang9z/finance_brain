@@ -8,6 +8,7 @@ _PROJECT_ROOT = str(Path(__file__).resolve().parent.parent)
 if _PROJECT_ROOT not in sys.path:
     sys.path.insert(0, _PROJECT_ROOT)
 
+from concurrent.futures import ThreadPoolExecutor
 import uuid
 from datetime import datetime
 from typing import List, Optional
@@ -18,6 +19,7 @@ from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel, Field
 from starlette.middleware.cors import CORSMiddleware
 from processor.query_processor.state import create_query_default_state
+from processor.query_processor.nodes.node_item_name_confirm import node_item_name_confirm
 from processor.query_processor.nodes.node_search_embedding import node_search_embedding
 from processor.query_processor.nodes.node_search_embedding_hyde import node_search_embedding_hyde
 from processor.query_processor.nodes.node_web_search_mcp import node_web_search_mcp
@@ -40,13 +42,14 @@ class QueryRequest(BaseModel):
 
 
 class RetrieveRequest(BaseModel):
-    """纯检索接口请求参数."""
+    """纯检索接口请求参数（对齐 main_graph 检索节点）."""
 
     query: str = Field(..., description="检索问句")
-    top_k: int = Field(4, ge=1, le=10, description="返回切片数量上限")
+    session_id: Optional[str] = Field(None, description="可选会话ID，用于多轮重写与主体确认")
+    top_k: int = Field(10, ge=1, le=10, description="返回切片数量上限")
     item_names: List[str] = Field(default_factory=list, description="可选金融产品或主体过滤词")
-    enable_hyde: bool = Field(False, description="是否启用 HyDE 假设回答增强检索")
-    enable_web: bool = Field(False, description="是否同时启用联网搜索")
+    enable_hyde: bool = Field(True, description="是否启用 HyDE 假设回答增强检索")
+    enable_web: bool = Field(True, description="是否同时启用联网搜索")
 
 
 class RetrievedChunk(BaseModel):
@@ -251,45 +254,74 @@ def stream(session_id: str, request: Request):
 
 @app.post("/api/v1/retrieve", response_model=RetrieveResponse, summary="纯检索知识切片接口")
 def retrieve_knowledge_chunks(req: RetrieveRequest):
-    """复用 BGE-M3 双路向量检索 + RRF 融合 + BGE-Reranker 精排返回 Top-K 切片（无状态，不写会话历史）."""
+    """对齐 main_graph 检索拓扑：node_item_name_confirm -> 三路并发召回(常规向量 + HyDE + Web) -> RRF -> Rerank."""
     clean_query = (req.query or "").strip()
     if not clean_query:
         return RetrieveResponse(query=req.query, chunks=[], degraded=True, reason="检索问句为空")
 
-    session_id = f"retrieve_{uuid.uuid4().hex[:12]}"
+    session_id = (req.session_id or "").strip() or f"retrieve_{uuid.uuid4().hex[:12]}"
+    caller_item_names = list(req.item_names or [])
     state = create_query_default_state(
         session_id=session_id,
         original_query=clean_query,
         rewritten_query=clean_query,
-        item_names=list(req.item_names or []),
+        item_names=caller_item_names,
         is_stream=False,
     )
     reasons: List[str] = []
 
     try:
+        # 1. 主体确认与问题改写节点 (对齐 main_graph 入口 node_item_name_confirm)
         try:
-            emb_res = node_search_embedding(state)
-            state["embedding_chunks"] = emb_res.get("embedding_chunks") or []
+            state = node_item_name_confirm(state)
+            if caller_item_names and not state.get("item_names"):
+                state["item_names"] = caller_item_names
+            if not (state.get("rewritten_query") or "").strip():
+                state["rewritten_query"] = clean_query
         except Exception as exc:
-            logger.warning(f"[{session_id}] 向量检索异常，降级继续: {exc}")
-            reasons.append(str(exc))
+            logger.warning(f"[{session_id}] node_item_name_confirm 异常，回退原始问句继续检索: {exc}")
+            state["rewritten_query"] = clean_query
+            state["item_names"] = caller_item_names
 
-        if req.enable_hyde:
+        # 2. 三路并发召回 (对齐 main_graph route_after_item_confirm 并发分支)
+        def _run_embedding():
+            return node_search_embedding(state)
+
+        def _run_hyde():
+            return node_search_embedding_hyde(state)
+
+        def _run_web():
+            return node_web_search_mcp(state)
+
+        with ThreadPoolExecutor(max_workers=3) as pool:
+            fut_emb = pool.submit(_run_embedding)
+            fut_hyde = pool.submit(_run_hyde) if req.enable_hyde else None
+            fut_web = pool.submit(_run_web) if req.enable_web else None
+
             try:
-                hyde_res = node_search_embedding_hyde(state)
-                state["hyde_embedding_chunks"] = hyde_res.get("hyde_embedding_chunks") or []
+                emb_res = fut_emb.result()
+                state["embedding_chunks"] = emb_res.get("embedding_chunks") or []
             except Exception as exc:
-                logger.warning(f"[{session_id}] HyDE 检索异常，降级继续: {exc}")
+                logger.warning(f"[{session_id}] 向量检索异常，降级继续: {exc}")
                 reasons.append(str(exc))
 
-        if req.enable_web:
-            try:
-                web_res = node_web_search_mcp(state)
-                state["web_search_docs"] = web_res.get("web_search_docs") or []
-            except Exception as exc:
-                logger.warning(f"[{session_id}] 联网检索异常，降级继续: {exc}")
-                reasons.append(str(exc))
+            if fut_hyde is not None:
+                try:
+                    hyde_res = fut_hyde.result()
+                    state["hyde_embedding_chunks"] = hyde_res.get("hyde_embedding_chunks") or []
+                except Exception as exc:
+                    logger.warning(f"[{session_id}] HyDE 检索异常，降级继续: {exc}")
+                    reasons.append(str(exc))
 
+            if fut_web is not None:
+                try:
+                    web_res = fut_web.result()
+                    state["web_search_docs"] = web_res.get("web_search_docs") or []
+                except Exception as exc:
+                    logger.warning(f"[{session_id}] 联网检索异常，降级继续: {exc}")
+                    reasons.append(str(exc))
+
+        # 3. RRF 倒排融合节点
         rrf_res = node_rrf(state)
         state["rrf_chunks"] = rrf_res.get("rrf_chunks") or []
 
@@ -298,6 +330,7 @@ def retrieve_knowledge_chunks(req: RetrieveRequest):
             reason_text = "; ".join(r for r in reasons if r) or "知识库未命中或向量库未连接"
             return RetrieveResponse(query=clean_query, chunks=[], degraded=True, reason=reason_text)
 
+        # 4. Rerank 精排节点
         rerank_res = node_rerank(state)
         docs = rerank_res.get("reranked_docs") or []
         limit = max(1, min(req.top_k, 10))

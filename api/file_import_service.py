@@ -47,7 +47,8 @@ async def index_page():
 
     return FileResponse(
         path=html_abs_path,
-        media_type="text/html"
+        media_type="text/html",
+        headers={"Cache-Control": "no-store"},
     )
 
 

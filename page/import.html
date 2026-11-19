@@ -1,4 +1,4 @@
-<!-- 导入演示页面，用于上传文档并观察导入状态（Google NotebookLM 极简工作台风格） -->
+<!-- 知识库文档导入工作台（与金融智能客服账本纸张风格统一） -->
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -7,132 +7,118 @@
     <title>资料导入 · 金融智脑</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Noto+Sans+SC:wght@400;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Noto+Serif+SC:wght@500;600&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg-surface: #ffffff;
-            --bg-subtle: #f8fafd;
-            --bg-container: #f0f4f9;
-            --text-primary: #1f1f1f;
-            --text-secondary: #444746;
-            --text-muted: #747775;
-            --google-blue: #0b57d0;
-            --border-color: #e3e3e3;
-            --font-sans: 'Inter', 'Noto Sans SC', -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+            --paper: #F6F4EF;
+            --paper-hover: #EFECE3;
+            --surface: #FFFFFF;
+            --ink: #14171C;
+            --ink-2: #5B616B;
+            --mist: #9AA0A8;
+            --hairline: #E4E0D6;
+            --celadon: #3F6F68;
+            --celadon-soft: #EBF2F0;
+            --seal: #B5432F;
+            --seal-soft: #F9EAE7;
+            --amber: #B7791F;
+            --amber-soft: #FBF4E6;
+            --shadow-ledger: 0 1px 2px rgba(20, 23, 28, .04), 0 6px 20px -10px rgba(20, 23, 28, .12);
+            --font-sans: "Inter", "PingFang SC", "Microsoft YaHei", sans-serif;
+            --font-serif: "Noto Serif SC", "Source Han Serif SC", "Songti SC", serif;
+            --font-mono: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
         }
 
         * { box-sizing: border-box; }
 
         body {
             font-family: var(--font-sans);
-            background-color: var(--bg-surface);
-            color: var(--text-primary);
+            background-color: var(--paper);
+            color: var(--ink);
             margin: 0;
             min-height: 100vh;
             display: flex;
             flex-direction: column;
+            line-height: 1.65;
             -webkit-font-smoothing: antialiased;
         }
 
-        /* 顶部应用栏：与问答页保持统一的 Google 工作台顶栏 */
-        .topbar {
-            height: 60px;
-            padding: 0 28px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            border-bottom: 1px solid var(--border-color);
-            background: var(--bg-surface);
-        }
-
-        .topbar-brand {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .topbar-brand strong {
-            font-size: 17px;
-            font-weight: 500;
-            color: var(--text-secondary);
-        }
-
-        .topbar-divider {
-            color: #c4c7c5;
-            font-weight: 300;
-        }
-
-        .topbar-module {
-            font-size: 14px;
-            color: var(--text-muted);
-        }
-
-        /* 主容器：左对齐现代控制台布局 */
+        /* 主容器 */
         .container {
             width: 100%;
-            max-width: 860px;
+            max-width: 840px;
             margin: 0 auto;
-            padding: 40px 24px 64px;
+            padding: 28px 24px 56px;
         }
 
         .header-wrap {
-            margin-bottom: 28px;
+            margin-bottom: 20px;
+        }
+
+        .eyebrow {
+            font-size: 11px;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: var(--celadon);
+            font-weight: 600;
+            margin-bottom: 4px;
         }
 
         h1 {
-            font-size: 22px;
-            font-weight: 500;
-            color: var(--text-primary);
-            margin: 0 0 8px 0;
-            letter-spacing: -0.2px;
+            font-family: var(--font-serif);
+            font-size: 20px;
+            font-weight: 600;
+            color: var(--ink);
+            margin: 0 0 6px 0;
         }
 
         .subtitle {
-            color: var(--text-secondary);
-            font-size: 14px;
-            line-height: 1.6;
+            color: var(--ink-2);
+            font-size: 13.5px;
+            line-height: 1.65;
             margin: 0;
         }
 
-        /* Google NotebookLM 风格上传区：干净克制，无艳丽背景 */
+        /* 账本纸张风格上传卡片 */
         .upload-area {
-            border: 1px dashed #c4c7c5;
-            background-color: var(--bg-subtle);
-            border-radius: 16px;
-            padding: 44px 32px;
+            border: 1.5px dashed #CFC9BA;
+            background-color: var(--surface);
+            border-radius: 12px;
+            padding: 38px 28px;
             text-align: center;
             cursor: pointer;
-            transition: background-color 0.15s ease, border-color 0.15s ease;
+            box-shadow: var(--shadow-ledger);
+            transition: background-color 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
         }
 
         .upload-area:hover {
-            background-color: var(--bg-container);
-            border-color: var(--text-secondary);
+            background-color: #FCFBF8;
+            border-color: var(--celadon);
         }
 
         .upload-icon {
             width: 44px;
             height: 44px;
-            border-radius: 50%;
-            background: #ffffff;
-            border: 1px solid var(--border-color);
-            color: var(--text-secondary);
+            border-radius: 10px;
+            background: var(--paper);
+            border: 1px solid var(--hairline);
+            color: var(--celadon);
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            margin-bottom: 14px;
+            margin-bottom: 12px;
         }
 
         .upload-title {
-            font-size: 15px;
-            font-weight: 500;
-            color: var(--text-primary);
-            margin: 0 0 6px 0;
+            font-size: 14.5px;
+            font-weight: 600;
+            color: var(--ink);
+            margin: 0 0 5px 0;
         }
 
         .upload-hint {
-            font-size: 13px;
-            color: var(--text-muted);
+            font-size: 12.5px;
+            color: var(--ink-2);
             margin: 0;
         }
 
@@ -142,85 +128,92 @@
 
         /* 任务列表区域 */
         .file-list {
-            margin-top: 28px;
+            margin-top: 22px;
             display: flex;
             flex-direction: column;
             gap: 10px;
         }
 
         .file-item {
-            background-color: var(--bg-surface);
-            border: 1px solid var(--border-color);
-            border-radius: 12px;
-            padding: 16px 20px;
+            background-color: var(--surface);
+            border: 1px solid var(--hairline);
+            border-radius: 10px;
+            padding: 14px 18px;
             display: flex;
             justify-content: space-between;
             align-items: flex-start;
+            box-shadow: 0 1px 2px rgba(20, 23, 28, .03);
             transition: border-color 0.15s ease;
         }
 
         .file-item:hover {
-            border-color: #c4c7c5;
+            border-color: #CFC9BA;
         }
 
         .file-info {
             display: flex;
             flex-direction: column;
             flex: 1;
-            margin-right: 20px;
+            margin-right: 18px;
             min-width: 0;
         }
 
         .file-name {
-            font-weight: 500;
-            font-size: 14px;
-            color: var(--text-primary);
+            font-weight: 600;
+            font-size: 13.5px;
+            color: var(--ink);
             word-break: break-all;
         }
 
         .file-size {
-            font-size: 12px;
-            color: var(--text-muted);
-            margin-top: 4px;
+            font-family: var(--font-mono);
+            font-size: 11.5px;
+            color: var(--mist);
+            margin-top: 3px;
             font-variant-numeric: tabular-nums;
         }
 
         /* 状态标签 */
         .status-badge {
-            padding: 4px 10px;
+            padding: 3px 9px;
             border-radius: 6px;
-            font-size: 12px;
+            font-size: 11.5px;
             font-weight: 500;
             text-align: center;
             flex-shrink: 0;
+            border: 1px solid transparent;
         }
 
         .status-uploading {
-            background-color: #fef7e0;
-            color: #b06000;
+            background-color: var(--amber-soft);
+            border-color: rgba(183, 121, 31, 0.25);
+            color: var(--amber);
         }
 
         .status-processing {
-            background-color: #e8f0fe;
-            color: #0b57d0;
+            background-color: var(--celadon-soft);
+            border-color: rgba(63, 111, 104, 0.25);
+            color: var(--celadon);
         }
 
         .status-completed {
-            background-color: #e6f4ea;
-            color: #137333;
+            background-color: var(--celadon-soft);
+            border-color: rgba(63, 111, 104, 0.35);
+            color: var(--celadon);
         }
 
         .status-error {
-            background-color: #fce8e6;
-            color: #c5221f;
+            background-color: var(--seal-soft);
+            border-color: rgba(181, 67, 47, 0.28);
+            color: var(--seal);
         }
 
         /* 极细线性进度条 */
         .progress-bar-container {
             width: 100%;
             height: 4px;
-            background-color: var(--bg-container);
-            margin-top: 12px;
+            background-color: var(--paper);
+            margin-top: 10px;
             border-radius: 999px;
             overflow: hidden;
             display: none;
@@ -228,7 +221,7 @@
 
         .progress-bar {
             height: 100%;
-            background-color: var(--google-blue);
+            background-color: var(--celadon);
             width: 0%;
             border-radius: 999px;
             transition: width 0.3s ease, background-color 0.3s ease;
@@ -237,61 +230,45 @@
         /* 任务日志折叠栏 */
         .log-details {
             margin-top: 10px;
-            font-size: 12.5px;
-            color: var(--text-secondary);
+            font-size: 12px;
+            color: var(--ink-2);
         }
 
         .log-details summary {
             cursor: pointer;
             user-select: none;
-            color: var(--text-muted);
+            color: var(--ink-2);
             font-size: 12px;
             outline: none;
         }
 
         .log-details summary:hover {
-            color: var(--text-primary);
+            color: var(--ink);
         }
 
         .log-list {
             margin: 8px 0 0 0;
             padding: 8px 12px;
             list-style: none;
-            background: var(--bg-subtle);
+            background: var(--paper);
+            border: 1px solid var(--hairline);
             border-radius: 8px;
-            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-            font-size: 12px;
+            font-family: var(--font-mono);
+            font-size: 11.5px;
         }
 
         .log-list li {
             margin: 4px 0;
             line-height: 1.5;
-            color: var(--text-secondary);
+            color: var(--ink-2);
         }
     </style>
 </head>
 <body>
 
-<header class="topbar">
-    <div class="topbar-brand">
-        <svg width="20" height="20" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M14 28C14 21.75 9.52 14 0 14C9.52 14 14 6.25 14 0C14 6.25 18.48 14 28 14C18.48 14 14 21.75 14 28Z" fill="url(#g)"/>
-            <defs>
-                <linearGradient id="g" x1="0" y1="0" x2="28" y2="28" gradientUnits="userSpaceOnUse">
-                    <stop stop-color="#4285F4"/>
-                    <stop offset="0.5" stop-color="#9B72CB"/>
-                    <stop offset="1" stop-color="#D96570"/>
-                </linearGradient>
-            </defs>
-        </svg>
-        <strong>金融智脑</strong>
-        <span class="topbar-divider">/</span>
-        <span class="topbar-module">知识库文档导入</span>
-    </div>
-</header>
-
 <div class="container">
     <div class="header-wrap">
+        <div class="eyebrow">MILVUS KNOWLEDGE INGESTION</div>
         <h1>添加知识源文档</h1>
         <p class="subtitle">上传上市公司定期财报、基金招募说明书、银行理财风险揭示书或监管政策文件，系统将自动执行文本切片与向量索引。</p>
     </div>
@@ -319,12 +296,12 @@
     const fileInput = document.getElementById('fileInput');
     const fileList = document.getElementById('fileList');
     
-    const API_BASE = location.origin.startsWith('http') ? location.origin : 'http://127.0.0.1:8000';
+    const API_BASE = location.origin.startsWith('http') ? location.origin : 'http://127.0.0.1:8002';
 
     dropZone.addEventListener('dragover', (e) => {
         e.preventDefault();
-        dropZone.style.backgroundColor = '#f0f4f9';
-        dropZone.style.borderColor = '#0b57d0';
+        dropZone.style.backgroundColor = '#FBF9F4';
+        dropZone.style.borderColor = '#3F6F68';
     });
 
     dropZone.addEventListener('dragleave', (e) => {
@@ -351,9 +328,9 @@
     function updateProgressBar(bar, percentage) {
         bar.style.width = percentage + '%';
         if (percentage >= 100) {
-            bar.style.backgroundColor = '#137333';
+            bar.style.backgroundColor = '#3F6F68';
         } else {
-            bar.style.backgroundColor = '#0b57d0';
+            bar.style.backgroundColor = '#B7791F';
         }
     }
 
