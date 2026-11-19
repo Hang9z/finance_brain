@@ -50,6 +50,12 @@ async def index_page():
         media_type="text/html"
     )
 
+
+@app.get("/health")
+def health():
+    """文档导入服务健康检查."""
+    return {"ok": True, "service": "finance_brain_import"}
+
 # --------------------------
 # 核心接口：多文件上传接口
 # 支持多文件批量上传，核心流程：接收文件 → 本地保存 → 启动后台任务
@@ -204,10 +210,10 @@ def run_graph_task(task_id: str, local_dir: str, local_file_path: str):
 if __name__ == "__main__":
     """服务启动入口：本地开发环境直接运行"""
     logger.info("File Import Service 服务启动中...")
-    # 启动 uvicorn 服务，监听本地 8000 端口
+    # 启动 uvicorn 服务，默认监听 8002 端口避免与金融中台 8000 端口冲突
     uvicorn.run(
         app="api.file_import_service:app",  # 对应文件名与实例名
         host="127.0.0.1",
-        port=8000,
+        port=int(os.getenv("IMPORT_SERVICE_PORT", "8002")),
         reload=False
     )

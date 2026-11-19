@@ -1,4 +1,5 @@
 import json
+import os
 from pathlib import Path
 import sys
 
@@ -9,6 +10,7 @@ if _PROJECT_ROOT not in sys.path:
 
 import uuid
 from datetime import datetime
+from typing import List, Optional
 
 import uvicorn
 from fastapi import FastAPI, BackgroundTasks, HTTPException, Request
@@ -16,6 +18,11 @@ from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel, Field
 from starlette.middleware.cors import CORSMiddleware
 from processor.query_processor.state import create_query_default_state
+from processor.query_processor.nodes.node_search_embedding import node_search_embedding
+from processor.query_processor.nodes.node_search_embedding_hyde import node_search_embedding_hyde
+from processor.query_processor.nodes.node_web_search_mcp import node_web_search_mcp
+from processor.query_processor.nodes.node_rrf import node_rrf
+from processor.query_processor.nodes.node_rerank import node_rerank
 
 from utils.task_utils import *
 from utils.sse_utils import create_sse_queue, get_sse_queue, SSEEvent, sse_generator
@@ -30,6 +37,39 @@ class QueryRequest(BaseModel):
     query: str = Field(..., description="查询内容")
     session_id: str = Field(None, description="会话ID")
     is_stream: bool = Field(False, description="是否选择流式返回")
+
+
+class RetrieveRequest(BaseModel):
+    """纯检索接口请求参数."""
+
+    query: str = Field(..., description="检索问句")
+    top_k: int = Field(4, ge=1, le=10, description="返回切片数量上限")
+    item_names: List[str] = Field(default_factory=list, description="可选金融产品或主体过滤词")
+    enable_hyde: bool = Field(False, description="是否启用 HyDE 假设回答增强检索")
+    enable_web: bool = Field(False, description="是否同时启用联网搜索")
+
+
+class RetrievedChunk(BaseModel):
+    """单条检索命中的精排切片."""
+
+    chunk_id: str = ""
+    content: str
+    title: str = ""
+    file_title: str = ""
+    parent_title: str = ""
+    item_name: str = ""
+    source_type: str = "milvus"
+    url: str = ""
+    score: float = 0.0
+
+
+class RetrieveResponse(BaseModel):
+    """纯检索接口返回体."""
+
+    query: str
+    chunks: List[RetrievedChunk] = Field(default_factory=list)
+    degraded: bool = False
+    reason: str = ""
 
 class HistoryItem(BaseModel):
     """
@@ -209,6 +249,84 @@ def stream(session_id: str, request: Request):
         media_type="text/event-stream"
     )
 
+@app.post("/api/v1/retrieve", response_model=RetrieveResponse, summary="纯检索知识切片接口")
+def retrieve_knowledge_chunks(req: RetrieveRequest):
+    """复用 BGE-M3 双路向量检索 + RRF 融合 + BGE-Reranker 精排返回 Top-K 切片（无状态，不写会话历史）."""
+    clean_query = (req.query or "").strip()
+    if not clean_query:
+        return RetrieveResponse(query=req.query, chunks=[], degraded=True, reason="检索问句为空")
+
+    session_id = f"retrieve_{uuid.uuid4().hex[:12]}"
+    state = create_query_default_state(
+        session_id=session_id,
+        original_query=clean_query,
+        rewritten_query=clean_query,
+        item_names=list(req.item_names or []),
+        is_stream=False,
+    )
+    reasons: List[str] = []
+
+    try:
+        try:
+            emb_res = node_search_embedding(state)
+            state["embedding_chunks"] = emb_res.get("embedding_chunks") or []
+        except Exception as exc:
+            logger.warning(f"[{session_id}] 向量检索异常，降级继续: {exc}")
+            reasons.append(str(exc))
+
+        if req.enable_hyde:
+            try:
+                hyde_res = node_search_embedding_hyde(state)
+                state["hyde_embedding_chunks"] = hyde_res.get("hyde_embedding_chunks") or []
+            except Exception as exc:
+                logger.warning(f"[{session_id}] HyDE 检索异常，降级继续: {exc}")
+                reasons.append(str(exc))
+
+        if req.enable_web:
+            try:
+                web_res = node_web_search_mcp(state)
+                state["web_search_docs"] = web_res.get("web_search_docs") or []
+            except Exception as exc:
+                logger.warning(f"[{session_id}] 联网检索异常，降级继续: {exc}")
+                reasons.append(str(exc))
+
+        rrf_res = node_rrf(state)
+        state["rrf_chunks"] = rrf_res.get("rrf_chunks") or []
+
+        if not state["rrf_chunks"] and not state["web_search_docs"]:
+            clear_task(session_id)
+            reason_text = "; ".join(r for r in reasons if r) or "知识库未命中或向量库未连接"
+            return RetrieveResponse(query=clean_query, chunks=[], degraded=True, reason=reason_text)
+
+        rerank_res = node_rerank(state)
+        docs = rerank_res.get("reranked_docs") or []
+        limit = max(1, min(req.top_k, 10))
+        chunks: List[RetrievedChunk] = []
+        for doc in docs[:limit]:
+            content = str(doc.get("text") or doc.get("content") or "").strip()
+            if not content:
+                continue
+            chunks.append(
+                RetrievedChunk(
+                    chunk_id=str(doc.get("chunk_id") or ""),
+                    content=content,
+                    title=str(doc.get("title") or ""),
+                    file_title=str(doc.get("file_title") or ""),
+                    parent_title=str(doc.get("parent_title") or ""),
+                    item_name=str(doc.get("item_name") or ""),
+                    source_type=str(doc.get("type") or "milvus"),
+                    url=str(doc.get("url") or ""),
+                    score=float(doc.get("score") or 0.0),
+                )
+            )
+        clear_task(session_id)
+        return RetrieveResponse(query=clean_query, chunks=chunks, degraded=len(chunks) == 0)
+    except Exception as exc:
+        logger.warning(f"[{session_id}] /api/v1/retrieve 执行异常，安全降级返回空切片: {exc}")
+        clear_task(session_id)
+        return RetrieveResponse(query=clean_query, chunks=[], degraded=True, reason=str(exc))
+
+
 @app.get("/health")
 def health():
     """服务健康检查"""
@@ -217,4 +335,4 @@ def health():
 
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="127.0.0.1", port=8001)
+    uvicorn.run(app, host="127.0.0.1", port=int(os.getenv("QUERY_SERVICE_PORT", "8001")))
