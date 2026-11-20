@@ -3,7 +3,6 @@ from typing import List, Dict, Any, Tuple
 
 from langchain_core.messages import HumanMessage
 from langchain_core.output_parsers import StrOutputParser
-from pandas.core.interchange.from_dataframe import primitive_column_to_ndarray
 
 from common.config.milvus_config import milvus_config
 from common.logging.logger import logger, node_log, step_log

@@ -138,6 +138,11 @@ def _split_text_for_rerank(answer: str, max_chars: int) -> List[str]:
     text_len = len(text)
     while start < text_len:
         end = min(text_len, start + body_budget)
+        if end < text_len:
+            # 优先向后回退到最近的换行符，避免在表格行或句子中间腰斩
+            nl_pos = text.rfind("\n", start + max(20, body_budget // 2), end + 1)
+            if nl_pos > start:
+                end = nl_pos
         piece = text[start:end].strip()
         if piece:
             if start > 0 and header and not piece.startswith(header.strip()):
@@ -147,7 +152,13 @@ def _split_text_for_rerank(answer: str, max_chars: int) -> List[str]:
             segments.append(seg[:max_chars])
         if end >= text_len:
             break
-        start += step
+        next_start = max(start + 20, end - overlap)
+        if next_start > 0 and next_start < text_len:
+            # 尽量让下一窗口从整行开头开始
+            next_nl = text.find("\n", next_start, min(text_len, next_start + 40))
+            if next_nl != -1 and next_nl + 1 < text_len:
+                next_start = next_nl + 1
+        start = next_start
 
     return segments or [text[:max_chars]]
 

@@ -26,10 +26,20 @@ from processor.query_processor.nodes.node_web_search_mcp import node_web_search_
 from processor.query_processor.nodes.node_rrf import node_rrf
 from processor.query_processor.nodes.node_rerank import node_rerank
 
-from utils.task_utils import *
+from utils.task_utils import (
+    TASK_STATUS_COMPLETED,
+    TASK_STATUS_FAILED,
+    TASK_STATUS_PROCESSING,
+    clear_task,
+    get_done_task_list,
+    update_task_status,
+)
 from utils.sse_utils import create_sse_queue, get_sse_queue, SSEEvent, sse_generator
-from utils.clients.mongo_history_utils import *
+from common.logging.logger import logger
 from processor.query_processor.main_graph import query_app
+
+# 模块级共享线程池，避免每次 /api/v1/retrieve 请求重复创建/销毁线程
+_RETRIEVE_POOL = ThreadPoolExecutor(max_workers=6)
 
 class QueryRequest(BaseModel):
     """
@@ -50,6 +60,7 @@ class RetrieveRequest(BaseModel):
     item_names: List[str] = Field(default_factory=list, description="可选金融产品或主体过滤词")
     enable_hyde: bool = Field(True, description="是否启用 HyDE 假设回答增强检索")
     enable_web: bool = Field(True, description="是否同时启用联网搜索")
+    skip_rewrite: bool = Field(False, description="调用方已确认主体/问句时跳过重复 LLM 改写")
 
 
 class RetrievedChunk(BaseModel):
@@ -134,6 +145,7 @@ def history(session_id: str, limit: int = 50):
     :param limit: 消息条数
     :return: {"session_id":}
     """
+    from utils.clients.mongo_history_utils import get_recent_messages
     records = get_recent_messages(session_id=session_id, limit=limit)
     # 因为 mongoDB 中有主键 _id 类型是 ObjectId, 跟 python 中的定义冲突, 会被认为是私有化向量, 重命名
     for r in records:
@@ -145,6 +157,7 @@ def history(session_id: str, limit: int = 50):
             summary="清空指定会话的聊天历史",
             description="根据 session_id 彻底物理删除该会话的所有历史消息")
 def clear_chat_history(session_id: str):
+    from utils.clients.mongo_history_utils import clear_history
     # 假设 clear_history 在数据库出错时会抛出异常, 由全局异常处理器接管
     deleted_count = clear_history(session_id)
 
@@ -271,17 +284,18 @@ def retrieve_knowledge_chunks(req: RetrieveRequest):
     reasons: List[str] = []
 
     try:
-        # 1. 主体确认与问题改写节点 (对齐 main_graph 入口 node_item_name_confirm)
-        try:
-            state = node_item_name_confirm(state)
-            if caller_item_names and not state.get("item_names"):
-                state["item_names"] = caller_item_names
-            if not (state.get("rewritten_query") or "").strip():
+        # 1. 主体确认与问题改写节点 (当调用方已明确主体或处于极速探测模式时可跳过)
+        if not req.skip_rewrite:
+            try:
+                state = node_item_name_confirm(state)
+                if caller_item_names and not state.get("item_names"):
+                    state["item_names"] = caller_item_names
+                if not (state.get("rewritten_query") or "").strip():
+                    state["rewritten_query"] = clean_query
+            except Exception as exc:
+                logger.warning(f"[{session_id}] node_item_name_confirm 异常，回退原始问句继续检索: {exc}")
                 state["rewritten_query"] = clean_query
-        except Exception as exc:
-            logger.warning(f"[{session_id}] node_item_name_confirm 异常，回退原始问句继续检索: {exc}")
-            state["rewritten_query"] = clean_query
-            state["item_names"] = caller_item_names
+                state["item_names"] = caller_item_names
 
         # 2. 三路并发召回 (对齐 main_graph route_after_item_confirm 并发分支)
         def _run_embedding():
@@ -293,33 +307,32 @@ def retrieve_knowledge_chunks(req: RetrieveRequest):
         def _run_web():
             return node_web_search_mcp(state)
 
-        with ThreadPoolExecutor(max_workers=3) as pool:
-            fut_emb = pool.submit(_run_embedding)
-            fut_hyde = pool.submit(_run_hyde) if req.enable_hyde else None
-            fut_web = pool.submit(_run_web) if req.enable_web else None
+        fut_emb = _RETRIEVE_POOL.submit(_run_embedding)
+        fut_hyde = _RETRIEVE_POOL.submit(_run_hyde) if req.enable_hyde else None
+        fut_web = _RETRIEVE_POOL.submit(_run_web) if req.enable_web else None
 
+        try:
+            emb_res = fut_emb.result()
+            state["embedding_chunks"] = emb_res.get("embedding_chunks") or []
+        except Exception as exc:
+            logger.warning(f"[{session_id}] 向量检索异常，降级继续: {exc}")
+            reasons.append(str(exc))
+
+        if fut_hyde is not None:
             try:
-                emb_res = fut_emb.result()
-                state["embedding_chunks"] = emb_res.get("embedding_chunks") or []
+                hyde_res = fut_hyde.result()
+                state["hyde_embedding_chunks"] = hyde_res.get("hyde_embedding_chunks") or []
             except Exception as exc:
-                logger.warning(f"[{session_id}] 向量检索异常，降级继续: {exc}")
+                logger.warning(f"[{session_id}] HyDE 检索异常，降级继续: {exc}")
                 reasons.append(str(exc))
 
-            if fut_hyde is not None:
-                try:
-                    hyde_res = fut_hyde.result()
-                    state["hyde_embedding_chunks"] = hyde_res.get("hyde_embedding_chunks") or []
-                except Exception as exc:
-                    logger.warning(f"[{session_id}] HyDE 检索异常，降级继续: {exc}")
-                    reasons.append(str(exc))
-
-            if fut_web is not None:
-                try:
-                    web_res = fut_web.result()
-                    state["web_search_docs"] = web_res.get("web_search_docs") or []
-                except Exception as exc:
-                    logger.warning(f"[{session_id}] 联网检索异常，降级继续: {exc}")
-                    reasons.append(str(exc))
+        if fut_web is not None:
+            try:
+                web_res = fut_web.result()
+                state["web_search_docs"] = web_res.get("web_search_docs") or []
+            except Exception as exc:
+                logger.warning(f"[{session_id}] 联网检索异常，降级继续: {exc}")
+                reasons.append(str(exc))
 
         # 3. RRF 倒排融合节点
         rrf_res = node_rrf(state)

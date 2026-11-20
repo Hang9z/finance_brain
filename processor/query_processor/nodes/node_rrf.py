@@ -59,12 +59,18 @@ def step_1_validate_and_get_data(state: QueryGraphState) -> Tuple[List, List]:
     return embedding_chunks, hyde_embedding_chunks
 
 @step_log("step_2_use_rrf_rank")
-def step_2_use_rrf_rank(data_list: list[tuple[float, list]], k: int = 60, top_k: int = 6) -> list[dict]:
+def step_2_use_rrf_rank(
+    data_list: list[tuple[float, list]],
+    k: int = 60,
+    top_k: int = 6,
+    max_per_section: int = 3,
+) -> list[dict]:
     """
     执行带权重的倒数排名融合算法（RRF）
     :param data_list: 各路数据元组列表，格式 [(weight, chunks), ...]
     :param k: 平滑超参数（默认 60）
     :param top_k: 最终保留的最优切片数量上限
+    :param max_per_section: 单一父章节最多优先保留的切片数（防长章节霸榜）
     :return: 融合去重后按 RRF 得分降序排列的切片列表
     """
     score_map: dict[str, float] = {}
@@ -77,7 +83,10 @@ def step_2_use_rrf_rank(data_list: list[tuple[float, list]], k: int = 60, top_k:
             if not isinstance(chunk, dict):
                 continue
 
-            chunk_id = chunk.get("chunk_id")
+            raw_cid = chunk.get("chunk_id")
+            chunk_id = str(raw_cid).strip() if raw_cid is not None else ""
+            if not chunk_id:
+                chunk_id = f"__anon_{hash((chunk.get('file_title', ''), chunk.get('title', ''), (chunk.get('content') or '')[:80]))}"
             rrf_score = weight * (1.0 / (k + rank))
 
             score_map[chunk_id] = score_map.get(chunk_id, 0.0) + rrf_score
@@ -97,9 +106,32 @@ def step_2_use_rrf_rank(data_list: list[tuple[float, list]], k: int = 60, top_k:
     # 按融合得分从高到低排序
     merged_chunks.sort(key=lambda c: c.get("score", 0.0), reverse=True)
 
-    # 截取 Top-K
-    final_rrf_chunks = merged_chunks[:top_k]
-    return final_rrf_chunks
+    if len(merged_chunks) <= top_k or max_per_section <= 0:
+        return merged_chunks[:top_k]
+
+    # 按 (file_title, parent_title) 做章节均衡，优先保证各章节都有代表进入 Rerank
+    selected: List[dict] = []
+    deferred: List[dict] = []
+    section_counts: dict[tuple[str, str], int] = {}
+
+    for c in merged_chunks:
+        sec_key = (
+            str(c.get("file_title") or "").strip(),
+            str(c.get("parent_title") or c.get("title") or "").strip(),
+        )
+        if sec_key != ("", "") and section_counts.get(sec_key, 0) >= max_per_section:
+            deferred.append(c)
+            continue
+        section_counts[sec_key] = section_counts.get(sec_key, 0) + 1
+        selected.append(c)
+        if len(selected) >= top_k:
+            break
+
+    # 若均衡后不足 top_k，再用剩余高分切片补齐
+    if len(selected) < top_k and deferred:
+        selected.extend(deferred[: top_k - len(selected)])
+
+    return selected
 
 
 if __name__ == "__main__":
