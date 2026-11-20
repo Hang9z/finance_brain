@@ -114,7 +114,7 @@ def step_3_select_chunks_in_milvus(
         dense_vector=dense_vec,
         sparse_vector=sparse_vec,
         expr=expr,
-        limit=10
+        limit=15
     )
 
     # 5. 执行混合检索
@@ -127,7 +127,7 @@ def step_3_select_chunks_in_milvus(
         reqs=reqs,
         ranker_weights=(0.5, 0.5),
         norm_score=True,
-        limit=5,
+        limit=15,
         output_fields=[
             "chunk_id",
             "file_title",

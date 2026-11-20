@@ -80,7 +80,7 @@ def step_2_select_chunks_in_milvus(item_names: List[str], rewritten_query: str) 
         dense_vector=dense_vec,
         sparse_vector=sparse_vec,
         expr=expr,
-        limit=10
+        limit=15
     )
 
     # 4. 执行混合检索
@@ -92,7 +92,7 @@ def step_2_select_chunks_in_milvus(item_names: List[str], rewritten_query: str) 
         reqs=reqs,
         ranker_weights=(0.5, 0.5),
         norm_score=True,
-        limit=5,
+        limit=15,
         output_fields=[
             "chunk_id",
             "file_title",

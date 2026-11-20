@@ -38,8 +38,8 @@ def node_rrf(state: QueryGraphState) -> dict:
     # 2. 组装待融合数据源列表: [(), ()]
     data_list: list[tuple[float, list]] = [(0.5, embedding_chunks), (0.5, hyde_embedding_chunks)]
 
-    # 3. 执行 RRF 融合排序 (k = 60, 截取 Top 6)
-    rrf_chunks = step_2_use_rrf_rank(data_list, k=60, top_k=6)
+    # 3. 执行 RRF 融合排序 (k = 60, 截取 Top 15)
+    rrf_chunks = step_2_use_rrf_rank(data_list, k=60, top_k=15)
 
     logger.info(
         f"[{session_id}] RRF 融合完成，输入切片数: 常规={len(embedding_chunks)}, HyDE={len(hyde_embedding_chunks)} -> 输出={len(rrf_chunks)}")

@@ -115,48 +115,75 @@ def step_2_merge_rrf_and_web(rrf_chunks: list, web_search_docs: list) -> List[Di
     logger.info(f"[step_2_merge_rrf_and_web] 本地切片={len(rrf_chunks)}, 外网网页={len(web_search_docs)} -> 合并候选数={len(merged_list)}")
     return merged_list
 
+def _split_text_for_rerank(answer: str, max_chars: int) -> List[str]:
+    """
+    将超长候选切片按滑动窗口切分为多个重叠子段（保留首行/表头上下文），
+    以便在不调用 LLM 摘要且不丢失中间段落信息的前提下，通过 Max-Pooling 计算精确重排分。
+    """
+    text = (answer or "").strip()
+    if not text or len(text) <= max_chars:
+        return [text]
+
+    lines = [ln for ln in text.splitlines() if ln.strip()]
+    header = ""
+    if lines and len(lines[0]) <= max(60, max_chars // 4):
+        header = lines[0].strip() + "\n"
+
+    body_budget = max(RERANK_MIN_SUMMARY_CHARS, max_chars - len(header))
+    overlap = max(30, body_budget // 5)
+    step = max(20, body_budget - overlap)
+
+    segments: List[str] = []
+    start = 0
+    text_len = len(text)
+    while start < text_len:
+        end = min(text_len, start + body_budget)
+        piece = text[start:end].strip()
+        if piece:
+            if start > 0 and header and not piece.startswith(header.strip()):
+                seg = f"{header}{piece}"
+            else:
+                seg = piece
+            segments.append(seg[:max_chars])
+        if end >= text_len:
+            break
+        start += step
+
+    return segments or [text[:max_chars]]
+
+
 @step_log("step_3_create_question_answer_pair")
 def step_3_create_question_answer_pair(merged_list: list[dict], rewritten_query: str) -> List[List[str]]:
     """
-    构造 [问题, 候选文本] 重排对, 为了避免文本过长无法送入模型, 对问题和文本进行压缩
-    :param merged_list:
-    :param rewritten_query:
-    :return:
+    构造 [问题, 候选文本] 重排对。
+    针对超出 Reranker 上下文窗口的长文本，采用滑动窗口分块（Chunked Max-Pooling），
+    将长切片无损拆分为多个带重叠的子段一并送入 Reranker 批量打分，避免串行 LLM 摘要的高延迟与信息丢失。
     """
     question_answer_pair: List[List[str]] = []
     question_token_len: int = compute_token_number(rewritten_query)
+    available_token = max(64, RERANK_MAX_INPUT_TOKENS - 4 - question_token_len)
+    char_length = max(
+        int(available_token / RERANK_SUMMARY_CHAR_RATIO),
+        RERANK_MIN_SUMMARY_CHARS
+    )
 
     for item in merged_list:
-        answer = item.get("text", "")
+        answer = item.get("text", "") or ""
         token_len = compute_token_number(answer)
 
-        # 判断是否超出模型上下文窗口长度
-        available_token = RERANK_MAX_INPUT_TOKENS - 4- question_token_len
-        if token_len > available_token and available_token > 0:
-            char_length = max(
-                int(available_token / RERANK_SUMMARY_CHAR_RATIO),
-                RERANK_MIN_SUMMARY_CHARS
+        if token_len > available_token:
+            segments = _split_text_for_rerank(answer, char_length)
+            logger.debug(
+                f"[step_3_create_question_answer_pair] 文本超长({len(answer)}字/{token_len}tokens)，"
+                f"无损切分为 {len(segments)} 个子窗口进行 Max-Pooling 打分"
             )
-            # 调用模型压缩文本
-            try:
-                llm_model = get_llm_client()
-                prompt_content = load_prompt(
-                    "rerank_text_refine",
-                    question=rewritten_query,
-                    answer=answer,
-                    limit=char_length
-                )
-                message = HumanMessage(content=prompt_content)
-                chain = llm_model | StrOutputParser()
-                compressed_answer = chain.invoke([message]).strip()
-                if compressed_answer:
-                    logger.debug(f"[step_3_create_question_answer_pair] 文本超长触发压缩: {len(answer)}字 -> {len(compressed_answer)}字")
-                    answer = compressed_answer
-            except Exception as e:
-                logger.warning(f"[step_3_create_question_answer_pair] 大模型压缩失败, 回退物理截断: {e}")
-                answer = answer[:char_length]
+        else:
+            segments = [answer]
 
-        question_answer_pair.append([rewritten_query, answer])
+        start_idx = len(question_answer_pair)
+        for seg in segments:
+            question_answer_pair.append([rewritten_query, seg])
+        item["_rerank_span"] = (start_idx, len(question_answer_pair))
 
     return question_answer_pair
 
@@ -164,20 +191,27 @@ def step_3_create_question_answer_pair(merged_list: list[dict], rewritten_query:
 @step_log("step_4_list_score_and_rank")
 def step_4_list_score_and_rank(merged_list: list[dict], question_answer_pair: list[list[str]]):
     """
-    调用 Reranker 模型进行打分, 并按得分从高到低就地排序
-    :param merged_list:
-    :param question_answer_pair:
-    :return:
+    调用 Reranker 模型进行批量打分（支持单切片多子窗口 Max-Pooling 聚合），并按得分从高到低就地排序
     """
     if not merged_list or not question_answer_pair:
         return
 
     reranker_model = get_reranker_model()
     score_list = reranker_model.compute_score(question_answer_pair, normalize=True)
+    if isinstance(score_list, (int, float)):
+        score_list = [float(score_list)]
 
-    # 分数写回字典
-    for score, item in zip(score_list, merged_list):
-        item["score"] = float(score)
+    # 分数写回字典（若单条切片切分为多个子窗口，取最高分 Max-Pooling）
+    for idx, item in enumerate(merged_list):
+        span = item.pop("_rerank_span", None)
+        if span and isinstance(span, tuple) and len(span) == 2:
+            start_idx, end_idx = span
+            sub_scores = [float(s) for s in score_list[start_idx:end_idx]]
+            item["score"] = max(sub_scores) if sub_scores else 0.0
+        elif idx < len(score_list):
+            item["score"] = float(score_list[idx])
+        else:
+            item["score"] = 0.0
 
     # 按分数降序排列
     merged_list.sort(key=lambda c: c.get("score", 0.0), reverse=True)
